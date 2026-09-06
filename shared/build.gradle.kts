@@ -1,5 +1,8 @@
 import com.codingfeline.buildkonfig.compiler.FieldSpec
 import com.skyd.podaura.buildlogic.macOSMediaDocumentTypes
+import com.skyd.podaura.buildlogic.addWindowsMediaFileAssociations
+import com.skyd.podaura.buildlogic.windowsMediaFileAssociations
+import com.skyd.podaura.buildlogic.configureWindowsMsiOpenWith
 import de.stefan_oltmann.msix.CreateAppxManifestTask
 import de.stefan_oltmann.msix.CreateMsixIconsTask
 import de.stefan_oltmann.msix.CreateMsixTask
@@ -304,6 +307,14 @@ compose.desktop {
                 shortcut = true
                 menu = true
                 menuGroup = "PodAura"
+                windowsMediaFileAssociations().forEach { (extension, mimeType) ->
+                    fileAssociation(
+                        mimeType = mimeType,
+                        extension = extension,
+                        description = "PodAura media file",
+                        iconFile = project.file("icons/PodAura.ico"),
+                    )
+                }
                 // https://wixtoolset.org/documentation/manual/v3/howtos/general/generate_guids.html
                 upgradeUuid = "451A428C-D349-458F-8B96-309CAA2F533C"
             }
@@ -365,6 +376,10 @@ tasks.named<CreateMsixIconsTask>("createMsixIcons") {
 }
 tasks.named<CreateAppxManifestTask>("createAppxManifest") {
     outputFile.set(msixApplicationDirectory.map { it.file("AppxManifest.xml") })
+    inputs.property("mediaFileAssociations", windowsMediaFileAssociations())
+    doLast {
+        addWindowsMediaFileAssociations(outputFile.get().asFile)
+    }
 }
 tasks.named<CreateMsixTask>("createMsix") {
     appDirectory.set(msixApplicationDirectory)
@@ -389,6 +404,15 @@ tasks.withType<AbstractNativeMacApplicationPackageAppDirTask>().configureEach {
 tasks.withType<AbstractJPackageTask>().configureEach {
     if (targetFormat == TargetFormat.Dmg) {
         freeArgs.addAll("--icon", "icons/icon_512x512.icns")
+    }
+    if (targetFormat == TargetFormat.Msi) {
+        inputs.property("openWithExtensions", windowsMediaFileAssociations().keys)
+        doLast {
+            configureWindowsMsiOpenWith(
+                destinationDir.get().asFile.resolve("${packageName.get()}-${packageVersion.get()}.msi"),
+                temporaryDir,
+            )
+        }
     }
 }
 

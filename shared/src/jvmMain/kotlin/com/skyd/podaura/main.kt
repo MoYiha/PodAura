@@ -17,11 +17,24 @@ import com.skyd.podaura.di.initKoin
 import com.skyd.podaura.ui.window.CrashWindow
 import com.skyd.podaura.ui.window.DesktopOpenFiles
 import com.skyd.podaura.ui.window.DesktopWindowHost
+import com.skyd.podaura.ui.window.DesktopWindowId
 import com.skyd.podaura.ui.window.initWindowsAppIdentity
 import com.skyd.podaura.ui.window.rememberDesktopAppState
 import com.skyd.podaura.util.CrashHandler
 
-fun main() {
+fun main(args: Array<String>) {
+    val openFiles = DesktopOpenFiles()
+    val shutdownHook = Thread({ openFiles.close() }, "PodAura activation cleanup")
+    Runtime.getRuntime().addShutdownHook(shutdownHook)
+    try {
+        if (openFiles.start(args)) runDesktopApplication(openFiles)
+    } finally {
+        openFiles.close()
+        Runtime.getRuntime().removeShutdownHook(shutdownHook)
+    }
+}
+
+private fun runDesktopApplication(openFiles: DesktopOpenFiles) {
     initWindowsAppIdentity()
 
     var crashMessage by mutableStateOf("")
@@ -30,8 +43,6 @@ fun main() {
     // https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-desktop-swing-interoperability.html#experimental-interop-blending
     System.setProperty("compose.interop.blending", "true")
 
-    val openFiles = DesktopOpenFiles().also { it.register() }
-
     initKoin()
     onAppStart()
 
@@ -39,7 +50,13 @@ fun main() {
         if (crashMessage.isBlank()) {
             val appState = rememberDesktopAppState()
             LaunchedEffect(appState) {
-                openFiles.requests.collect(appState::openFiles)
+                openFiles.requests.collect { files ->
+                    if (files.isEmpty()) {
+                        appState.windowManager.activate(DesktopWindowId.Main)
+                    } else {
+                        appState.openFiles(files)
+                    }
+                }
             }
             val exitPodAura = {
                 appState.destroySession()
