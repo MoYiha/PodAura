@@ -1,16 +1,16 @@
 package com.skyd.podaura.model.repository.player
 
+import com.skyd.podaura.ext.asPlatformFile
 import com.skyd.podaura.model.bean.history.MediaPlayHistoryBean
 import com.skyd.podaura.model.bean.playlist.PlaylistMediaBean
 import com.skyd.podaura.model.bean.playlist.PlaylistMediaWithArticleBean
-import com.skyd.podaura.ext.asPlatformFile
-import com.skyd.podaura.ui.player.resolveToPlayer
 import com.skyd.podaura.model.bean.playlist.updateLocalMediaMetadata
 import com.skyd.podaura.model.db.dao.ArticleDao
 import com.skyd.podaura.model.db.dao.EnclosureDao
 import com.skyd.podaura.model.db.dao.MediaPlayHistoryDao
 import com.skyd.podaura.model.repository.BaseRepository
 import com.skyd.podaura.ui.player.jumper.PlayDataMode
+import com.skyd.podaura.ui.player.resolveToPlayer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
@@ -25,33 +25,45 @@ class PlayerRepository(
 ) : BaseRepository(), IPlayerRepository {
     override fun insertPlayHistory(path: String, duration: Long, articleId: String?): Flow<Unit> =
         flow {
-            val realArticleId = articleId?.takeIf {
-                articleDao.exists(it) > 0
-            } ?: enclosureDao.getMediaArticleId(path)
-
-            val old = mediaPlayHistoryDao.getMediaPlayHistory(path)
-            val currentHistory = old?.copy(
-                duration = duration,
-                lastTime = Clock.System.now().toEpochMilliseconds(),
-                articleId = realArticleId,
-            ) ?: MediaPlayHistoryBean(
-                path = path,
-                duration = duration,
-                lastPlayPosition = 0L,
-                lastTime = Clock.System.now().toEpochMilliseconds(),
-                articleId = realArticleId,
+            mediaPlayHistoryDao.recordPlaybackStarted(
+                createPlayHistory(path, duration, lastPlayPosition = 0L, articleId = articleId)
             )
-            mediaPlayHistoryDao.updateMediaPlayHistory(currentHistory)
             emit(Unit)
         }.flowOn(Dispatchers.IO)
 
-    override fun updateLastPlayPosition(path: String, lastPlayPosition: Long): Flow<Unit> = flow {
-        mediaPlayHistoryDao.updateLastPlayPosition(path, lastPlayPosition)
+    override fun updateLastPlayPosition(
+        path: String,
+        lastPlayPosition: Long,
+        duration: Long,
+        articleId: String?,
+    ): Flow<Unit> = flow {
+        mediaPlayHistoryDao.updateMediaPlayHistory(
+            createPlayHistory(path, duration, lastPlayPosition, articleId)
+        )
         emit(Unit)
     }.flowOn(Dispatchers.IO)
 
-    override fun requestLastPlayPosition(path: String): Flow<Long> = flow {
-        emit(mediaPlayHistoryDao.getMediaPlayHistory(path)?.lastPlayPosition ?: 0L)
+    private suspend fun createPlayHistory(
+        path: String,
+        duration: Long,
+        lastPlayPosition: Long,
+        articleId: String?,
+    ): MediaPlayHistoryBean {
+        val realArticleId = articleId?.takeIf { articleDao.exists(it) > 0 }
+            ?: enclosureDao.getMediaArticleId(path)
+        return MediaPlayHistoryBean(
+            path = path,
+            duration = duration,
+            lastPlayPosition = lastPlayPosition,
+            lastTime = Clock.System.now().toEpochMilliseconds(),
+            articleId = realArticleId,
+        )
+    }
+
+    override fun requestLastPlayPosition(path: String, fallbackPath: String?): Flow<Long> = flow {
+        val history = mediaPlayHistoryDao.getMediaPlayHistory(path)
+            ?: fallbackPath?.let { mediaPlayHistoryDao.getMediaPlayHistory(it) }
+        emit(history?.lastPlayPosition ?: 0L)
     }.flowOn(Dispatchers.IO)
 
     suspend fun requestPlaylistByArticleId(
@@ -93,6 +105,7 @@ class PlayerRepository(
                     createTime = Clock.System.now().toEpochMilliseconds(),
                 ).apply {
                     sourceUrl = playMediaListItem.path
+                    historyUrl = playMediaListItem.historyUrl
                     updateLocalMediaMetadata()
                 },
                 article = articleMap[playMediaListItem.articleId],

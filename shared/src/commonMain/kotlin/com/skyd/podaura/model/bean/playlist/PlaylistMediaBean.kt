@@ -71,6 +71,11 @@ data class PlaylistMediaBean(
     @kotlinx.serialization.Transient
     var sourceUrl: String? = null
 
+    @Ignore
+    @kotlinx.serialization.Transient
+    // A download can share history with its remote URL while keeping its local playback source.
+    var historyUrl: String? = null
+
     @get:Ignore
     val stableUrl: String
         get() = sourceUrl ?: url

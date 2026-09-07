@@ -266,6 +266,7 @@ internal fun DownloadInfoBean.toPlayDataMode(localPath: String) =
                 articleId = articleDownloadSource?.articleId,
                 title = displayTitle,
                 thumbnail = articleDownloadInfo?.imageCandidates?.firstOrNull(),
+                historyUrl = url,
             )
         ),
     )

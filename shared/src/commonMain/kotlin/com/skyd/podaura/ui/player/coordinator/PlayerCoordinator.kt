@@ -44,7 +44,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
@@ -52,7 +51,6 @@ import kotlinx.coroutines.withContext
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.update
-import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -62,6 +60,11 @@ class PlayerCoordinator : LifecycleOwner {
     private val playerRepo: IPlayerRepository by inject()
     private val addToPlaylistRepo: IAddToPlaylistRepository by inject()
     private val player = MPVPlayer.instance
+    private val progress by lazy {
+        PlaybackProgress(playerRepo) { error ->
+            logger.w(throwable = error) { "Failed to persist playback history" }
+        }
+    }
 
     val model = PlayerModel()
     val playerState get() = model.playerState
@@ -77,6 +80,7 @@ class PlayerCoordinator : LifecycleOwner {
     private val mainScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val destroyed = AtomicBoolean(false)
     private val activeGeneration = AtomicReference<Long?>(null)
+    private val nativeMediaGeneration = AtomicReference(0L)
     private val commands = Channel<ActorMessage>(Channel.UNLIMITED)
     private val retrySignal = Channel<Unit>(Channel.CONFLATED)
     private val loadSignal = Channel<Unit>(Channel.CONFLATED)
@@ -94,9 +98,8 @@ class PlayerCoordinator : LifecycleOwner {
     private var pendingStartPosition: PendingStartPosition? = null
     private var lastLoadRequestId: String? = null
     private var currentPath: String? = null
-    private var currentPathPlayed = false
+    private var currentMediaGeneration = 0L
     private var hasMediaReady = false
-    private var lastPositionSeconds = 0L
     private val liveSurfaces = linkedSetOf<PlatformSurfaceHolder>()
     private var activeSurface: PlatformSurfaceHolder? = null
 
@@ -131,7 +134,7 @@ class PlayerCoordinator : LifecycleOwner {
                             onDetachAll(this@PlayerCoordinator)
                         }
                         detachNativeSurface()
-                        savePosition(currentPath?.toStableMediaUrl())
+                        progress.finish()
                         emitShutdown()
                         playerTrace("Player/MpvDestroy") { player.destroy() }
                         externalPlayback?.release()
@@ -255,10 +258,9 @@ class PlayerCoordinator : LifecycleOwner {
                 playlistEntryId = message.playlistEntryId,
             )
 
-            is ActorMessage.NativeEvent -> return handleNativeEvent(message.event)
+            is ActorMessage.NativeEvent -> return handleNativeEvent(message)
             is ActorMessage.Property -> handleProperty(message)
             is ActorMessage.Surface -> handleSurface(message.event)
-            is ActorMessage.ApplyLastPosition -> applyLastPosition(message)
             is ActorMessage.PlaybackFailureHandled -> {
                 val failure = model.consumePlaybackFailure(message.id)
                 if (message.retry && failure?.retryEnd != null &&
@@ -273,7 +275,7 @@ class PlayerCoordinator : LifecycleOwner {
         return true
     }
 
-    private fun executeCommand(command: PlayerCommand) {
+    private suspend fun executeCommand(command: PlayerCommand) {
         when (command) {
             is PlayerCommand.RemoveMediaFromPlaylist -> removeMedia(command)
             is PlayerCommand.Paused -> setPaused(command.paused)
@@ -282,14 +284,15 @@ class PlayerCoordinator : LifecycleOwner {
                 if (!handleFailedPlaybackRetry()) player.cyclePause()
             }
 
-            PlayerCommand.PreviousMedia -> player.playlistPrev()
-            PlayerCommand.NextMedia -> player.playlistNext()
-            is PlayerCommand.SeekTo -> player.seek(
-                command.position.coerceIn(
-                    0L,
-                    player.duration.toLong().coerceAtLeast(0L),
-                ).toInt()
-            )
+            PlayerCommand.PreviousMedia -> {
+                progress.save()
+                player.playlistPrev()
+            }
+            PlayerCommand.NextMedia -> {
+                progress.save()
+                player.playlistNext()
+            }
+            is PlayerCommand.SeekTo -> seekTo(command.position)
 
             is PlayerCommand.AudioDelay -> player.audioDelay(command.delayMillis)
             is PlayerCommand.SubtitleDelay -> player.subtitleDelay(command.delayMillis)
@@ -306,7 +309,10 @@ class PlayerCoordinator : LifecycleOwner {
                 setLoopMode(entries[(playerState.value.loop.ordinal + 1) % entries.size])
             }
 
-            is PlayerCommand.PlayFileInPlaylist -> player.playFileInPlaylist(command.path)
+            is PlayerCommand.PlayFileInPlaylist -> {
+                progress.save()
+                player.playFileInPlaylist(command.path)
+            }
             is PlayerCommand.Attach,
             is PlayerCommand.Detach,
             is PlayerCommand.LoadList,
@@ -332,8 +338,9 @@ class PlayerCoordinator : LifecycleOwner {
         return true
     }
 
-    private fun removeMedia(command: PlayerCommand.RemoveMediaFromPlaylist) {
+    private suspend fun removeMedia(command: PlayerCommand.RemoveMediaFromPlaylist) {
         if (playlistId != command.playlist.firstOrNull()?.playlistMediaBean?.playlistId) return
+        progress.save()
         command.playlist.forEach { cachedPlaylistMap.remove(it.playlistMediaBean.url) }
         externalPlayback?.retainPaths(cachedPlaylistMap.keys)
         val currentPlaylistId = playlistId
@@ -390,10 +397,7 @@ class PlayerCoordinator : LifecycleOwner {
                 ?.takeUnless { seekCurrentMedia }
                 ?.let { position -> command.startPath?.let { PendingStartPosition(it, position) } }
         }
-        if (currentPathPlayed && (externalPlayback != null || command.externalBatch != null)) {
-            // Save while the old engine URL still maps to its original content URI.
-            savePosition(currentPath?.toStableMediaUrl())
-        }
+        progress.save()
         playlistId = command.playlist.firstOrNull()?.playlistMediaBean?.playlistId.orEmpty()
         cachedPlaylistMap.clear()
         cachedPlaylistMap.putAll(command.playlist.map { it.playlistMediaBean.url to it })
@@ -401,19 +405,20 @@ class PlayerCoordinator : LifecycleOwner {
         player.setExternalQueue(command.externalBatch != null)
         if (isNewRequest) emitEvent(PlayerEvent.ClearPlaybackEnd)
         player.loadList(files = files, startFile = command.startPath)
-        startPositionSeconds?.takeIf { seekCurrentMedia }?.let(::seekAndPlay)
+        startPositionSeconds?.takeIf { seekCurrentMedia }?.let { seekAndPlay(it) }
         if (isNewRequest) setPaused(false)
     }
 
-    private fun setPaused(paused: Boolean) {
+    private suspend fun setPaused(paused: Boolean) {
         if (!paused && handleFailedPlaybackRetry()) return
         if (!paused) {
-            if (player.keepOpen && player.eofReached) player.seek(0)
+            if (player.keepOpen && player.eofReached) seekTo(0)
             else if (player.isIdling && player.playlistCount > 0) {
                 player.playMediaAtIndex(player.playlistCount - 1)
             }
         }
         player.paused = paused
+        if (paused) progress.save()
     }
 
     private fun createMpvObserver(generation: Long) = object : EventListener {
@@ -430,8 +435,7 @@ class PlayerCoordinator : LifecycleOwner {
 
         override fun onPropertyChange(name: String, value: Long) {
             if (!isCurrent()) return
-            if (name == "time-pos") postTelemetry { copy(position = value) }
-            else commands.trySend(ActorMessage.Property(name = name, longValue = value))
+            commands.trySend(ActorMessage.Property(name = name, longValue = value))
         }
 
         override fun onPropertyChange(name: String, value: Boolean) {
@@ -466,18 +470,32 @@ class PlayerCoordinator : LifecycleOwner {
         }
 
         override fun onEvent(event: Int) {
-            if (isCurrent()) commands.trySend(ActorMessage.NativeEvent(event))
+            if (!isCurrent()) return
+            if (event == MPVEvent.START_FILE) nativeMediaGeneration.update { it + 1 }
+            commands.trySend(
+                ActorMessage.NativeEvent(
+                    event = event,
+                    mediaGeneration = nativeMediaGeneration.load(),
+                    path = if (event == MPVEvent.START_FILE) player.path else null,
+                    position = if (event == MPVEvent.PLAYBACK_RESTART) player.timePos.toLong() else 0L,
+                    duration = if (event == MPVEvent.FILE_LOADED) player.duration.toLong() else 0L,
+                    seekable = event == MPVEvent.FILE_LOADED && player.mpv.getPropertyBoolean("seekable"),
+                )
+            )
         }
     }
 
-    private suspend fun handleNativeEvent(event: Int): Boolean {
+    private suspend fun handleNativeEvent(message: ActorMessage.NativeEvent): Boolean {
         flushTelemetry()
-        when (event) {
-            MPVEvent.SEEK -> emitEvent(PlayerEvent.Seek)
+        when (message.event) {
+            MPVEvent.SEEK -> {
+                progress.beginSeek()
+                emitEvent(PlayerEvent.Seek)
+            }
             MPVEvent.START_FILE -> {
-                currentPath = player.path
-                currentPathPlayed = false
-                lastPositionSeconds = 0L
+                progress.finish()
+                currentPath = message.path
+                currentMediaGeneration = message.mediaGeneration
                 if (!hasMediaReady) _engineState.value = PlayerEngineState.LoadingMedia
                 emitEvent(PlayerEvent.StartFile(currentPath))
                 emitEvent(PlayerEvent.Loading(true))
@@ -491,8 +509,9 @@ class PlayerCoordinator : LifecycleOwner {
                 )
             }
 
-            MPVEvent.FILE_LOADED -> onFileLoaded()
+            MPVEvent.FILE_LOADED -> onFileLoaded(message.duration, message.seekable)
             MPVEvent.PLAYBACK_RESTART -> {
+                progress.restarted(message.position)
                 emitEvent(PlayerEvent.PlaybackRestart)
                 emitEvent(PlayerEvent.Paused(player.paused))
             }
@@ -535,12 +554,11 @@ class PlayerCoordinator : LifecycleOwner {
             }
         }
         emitEvent(PlayerEvent.Loading(false))
-        if (currentPathPlayed) savePosition(currentPath?.toStableMediaUrl())
+        progress.finish()
         currentPath = null
-        currentPathPlayed = false
     }
 
-    private fun onFileLoaded() {
+    private suspend fun onFileLoaded(duration: Long, seekable: Boolean) {
         val loadedPath = currentPath
         externalPlayback?.onFileLoaded(loadedPath)
         // A coalesced track-list update can be consumed before StartFile clears the model.
@@ -556,30 +574,40 @@ class PlayerCoordinator : LifecycleOwner {
                 subtitleTrackId = player.sid,
             )
         )
-        currentPathPlayed = true
         hasMediaReady = true
         _engineState.value = PlayerEngineState.Ready
-        val duration = player.duration.toLong()
-        loadedPath?.let { path ->
-            val stablePath = path.toStableMediaUrl()
-            val articleId = cachedPlaylistMap[path]?.articleId
-            ioScope.launch {
-                playerRepo.insertPlayHistory(stablePath, duration, articleId).collect()
-            }
-        }
         emitEvent(PlayerEvent.Paused(player.paused))
         emitEvent(PlayerEvent.Loading(player.loading()))
         val startPosition = pendingStartPosition
             .also { pendingStartPosition = null }
             ?.takeIf { it.path == loadedPath }
-        if (startPosition != null) seekAndPlay(startPosition.positionSeconds)
-        else loadLastPosition(loadedPath?.toStableMediaUrl())
+        loadedPath?.let { path ->
+            val position = progress.start(
+                path = path.toHistoryUrl(),
+                duration = duration,
+                articleId = cachedPlaylistMap[path]?.articleId,
+                startPosition = startPosition?.positionSeconds,
+                fallbackPath = path.toStableMediaUrl().takeUnless { it == path.toHistoryUrl() },
+                seekable = seekable,
+            )
+            // Native playback can advance while the actor is waiting for the database.
+            if (nativeMediaGeneration.load() != currentMediaGeneration) return@let
+            if (seekable && (position > 0 || startPosition != null)) {
+                player.seek(position.toInt())
+                progress.seek(position)
+            } else progress.save()
+            if (startPosition != null) player.paused = false
+        }
         emitEvent(PlayerEvent.MediaThumbnail(player.thumbnail))
     }
 
-    private fun handleProperty(property: ActorMessage.Property) {
+    private suspend fun handleProperty(property: ActorMessage.Property) {
         with(property) {
             when (name) {
+                "time-pos" -> longValue?.let {
+                    progress.update(it)
+                    emitEvent(PlayerEvent.Position(it))
+                }
                 "aid" -> emitEvent(PlayerEvent.AudioTrackChanged(longValue?.toInt() ?: player.aid))
                 "sid" -> emitEvent(
                     PlayerEvent.SubtitleTrackChanged(
@@ -588,13 +616,19 @@ class PlayerCoordinator : LifecycleOwner {
                 )
 
                 "vid" -> emitEvent(PlayerEvent.VideoTrackChanged(longValue?.toInt() ?: player.vid))
-                "duration" -> longValue?.let { emitEvent(PlayerEvent.Duration(it)) }
+                "duration" -> longValue?.let {
+                    progress.updateDuration(it)
+                    emitEvent(PlayerEvent.Duration(it))
+                }
                 "video-rotate" -> longValue?.let { emitEvent(PlayerEvent.Rotate(it.toFloat())) }
                 "playlist-pos" -> longValue?.let {
                     emitEvent(PlayerEvent.PlaylistPosition(it.toInt()))
                 }
 
-                "pause" -> booleanValue?.let { emitEvent(PlayerEvent.Paused(it)) }
+                "pause" -> booleanValue?.let {
+                    if (it) progress.save()
+                    emitEvent(PlayerEvent.Paused(it))
+                }
                 "seekable" -> booleanValue?.let { emitEvent(PlayerEvent.Seekable(it)) }
                 "shuffle" -> booleanValue?.let { emitEvent(PlayerEvent.Shuffle(it)) }
                 "idle-active" -> booleanValue?.let { emitEvent(PlayerEvent.Idling(it)) }
@@ -629,10 +663,6 @@ class PlayerCoordinator : LifecycleOwner {
 
     private fun flushTelemetry() {
         val telemetry = latestTelemetry.exchange(Telemetry())
-        telemetry.position?.let {
-            lastPositionSeconds = it
-            emitEvent(PlayerEvent.Position(it))
-        }
         telemetry.buffer?.let { emitEvent(PlayerEvent.Buffer(it)) }
         telemetry.zoom?.let { emitEvent(PlayerEvent.Zoom(2.0.pow(it).toFloat())) }
         telemetry.panX?.let {
@@ -749,44 +779,20 @@ class PlayerCoordinator : LifecycleOwner {
         }
     }
 
-    private fun seekAndPlay(positionSeconds: Long) {
-        player.seek(
-            positionSeconds.coerceIn(
-                0L,
-                player.duration.toLong().coerceAtLeast(0L),
-            ).toInt()
-        )
+    private suspend fun seekTo(positionSeconds: Long) {
+        if (nativeMediaGeneration.load() != currentMediaGeneration) return
+        if (!player.mpv.getPropertyBoolean("seekable")) return
+        val duration = player.duration.toLong()
+        val position = positionSeconds.coerceAtLeast(0L).let {
+            if (duration > 0) it.coerceAtMost(duration) else it
+        }
+        player.seek(position.toInt())
+        progress.seek(position)
+    }
+
+    private suspend fun seekAndPlay(positionSeconds: Long) {
+        seekTo(positionSeconds)
         player.paused = false
-    }
-
-    private fun loadLastPosition(path: String?) {
-        if (path == null) return
-        ioScope.launch {
-            val lastPosition = playerRepo.requestLastPlayPosition(path).first()
-            commands.send(ActorMessage.ApplyLastPosition(path, lastPosition))
-        }
-    }
-
-    private fun applyLastPosition(message: ActorMessage.ApplyLastPosition) {
-        if (currentPath?.toStableMediaUrl() != message.path) return
-        if (message.positionMillis > 0 &&
-            abs(player.duration - message.positionMillis / 1000) > 20
-        ) {
-            player.seek((message.positionMillis / 1000).toInt().coerceAtLeast(0))
-        }
-    }
-
-    private suspend fun savePosition(path: String?) {
-        if (path == null) return
-        val positionMillis = lastPositionSeconds * 1000L
-        if (positionMillis <= 1000L) return
-        try {
-            playerRepo.updateLastPlayPosition(path, positionMillis).collect()
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Throwable) {
-            logger.w(throwable = error) { "Failed to save playback position" }
-        }
     }
 
     private fun emitEvent(event: PlayerEvent) {
@@ -807,6 +813,9 @@ class PlayerCoordinator : LifecycleOwner {
     private fun String.toStableMediaUrl(): String =
         cachedPlaylistMap[this]?.playlistMediaBean?.stableUrl ?: this
 
+    private fun String.toHistoryUrl(): String =
+        cachedPlaylistMap[this]?.playlistMediaBean?.historyUrl ?: toStableMediaUrl()
+
     private sealed interface ActorMessage {
         data class Command(val command: PlayerCommand) : ActorMessage
         data class Key(val input: PlayerKeyInput) : ActorMessage
@@ -816,7 +825,14 @@ class PlayerCoordinator : LifecycleOwner {
             val playlistEntryId: Long,
         ) : ActorMessage
 
-        data class NativeEvent(val event: Int) : ActorMessage
+        data class NativeEvent(
+            val event: Int,
+            val mediaGeneration: Long,
+            val path: String?,
+            val position: Long,
+            val duration: Long,
+            val seekable: Boolean,
+        ) : ActorMessage
         data class Property(
             val name: String,
             val longValue: Long? = null,
@@ -826,13 +842,11 @@ class PlayerCoordinator : LifecycleOwner {
         ) : ActorMessage
 
         data class Surface(val event: PlayerSurfaceEvent) : ActorMessage
-        data class ApplyLastPosition(val path: String, val positionMillis: Long) : ActorMessage
         data class PlaybackFailureHandled(val id: String, val retry: Boolean) : ActorMessage
         data object FlushTransform : ActorMessage
     }
 
     private data class Telemetry(
-        val position: Long? = null,
         val buffer: Int? = null,
         val zoom: Double? = null,
         val panX: Double? = null,

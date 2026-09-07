@@ -19,6 +19,26 @@ import com.skyd.podaura.model.bean.history.MediaPlayHistoryWithArticle
 @Dao
 @DaoReturnTypeConverters(PagingSourceDaoReturnTypeConverter::class)
 interface MediaPlayHistoryDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIfAbsent(history: MediaPlayHistoryBean)
+
+    @Query(
+        """
+        UPDATE $MEDIA_PLAY_HISTORY_TABLE_NAME
+        SET ${MediaPlayHistoryBean.DURATION_COLUMN} = :duration,
+            ${MediaPlayHistoryBean.LAST_TIME_COLUMN} = :lastTime,
+            ${MediaPlayHistoryBean.ARTICLE_ID_COLUMN} = :articleId
+        WHERE ${MediaPlayHistoryBean.PATH_COLUMN} = :path
+        """
+    )
+    suspend fun updateMetadata(path: String, duration: Long, lastTime: Long, articleId: String?)
+
+    @Transaction
+    suspend fun recordPlaybackStarted(history: MediaPlayHistoryBean) {
+        insertIfAbsent(history)
+        updateMetadata(history.path, history.duration, history.lastTime, history.articleId)
+    }
+
     @Transaction
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun updateMediaPlayHistory(mediaPlayHistoryBean: MediaPlayHistoryBean)

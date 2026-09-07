@@ -38,6 +38,7 @@ sealed interface PlayDataMode {
             // If articleId is invalid, use the following fields
             val title: String?,
             val thumbnail: String?,
+            val historyUrl: String? = null,
         )
     }
 

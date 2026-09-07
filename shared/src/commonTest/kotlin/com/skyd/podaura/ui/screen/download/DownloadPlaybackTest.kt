@@ -35,5 +35,7 @@ class DownloadPlaybackTest {
         assertEquals("/downloads/episode.mp3", mode.mediaList.single().path)
         assertEquals("article-id", mode.mediaList.single().articleId)
         assertEquals("episode.mp3", mode.mediaList.single().title)
+        assertEquals(item.url, mode.mediaList.single().historyUrl)
+        assertEquals(mode, PlayDataMode.decodeFromString(mode.encodeToString()))
     }
 }
