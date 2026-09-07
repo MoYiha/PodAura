@@ -3,11 +3,53 @@ package com.skyd.podaura.ui.screen.article
 import androidx.paging.PagingData
 import com.skyd.podaura.model.bean.article.ArticleDeleteResult
 import com.skyd.podaura.model.bean.article.ArticleWithFeed
+import com.skyd.podaura.model.repository.download.SelectedDownloadPlan
+import com.skyd.podaura.model.repository.download.SelectedDownloadResult
 import kotlinx.coroutines.flow.Flow
 
 
 internal sealed interface ArticlePartialStateChange {
     fun reduce(oldState: ArticleState): ArticleState
+
+    sealed interface Selection : ArticlePartialStateChange {
+        override fun reduce(oldState: ArticleState): ArticleState {
+            val selection = oldState.selectionState
+            val editable = selection.active && !selection.busy && selection.confirmation == null
+            val next = when (this) {
+                is Enter -> if (!selection.active && !selection.busy) {
+                    ArticleSelectionState(active = true, selectedIds = setOfNotNull(articleId))
+                } else selection
+                Exit -> ArticleSelectionState()
+                is Toggle -> if (editable) selection.copy(
+                    selectedIds = if (articleId in selection.selectedIds) {
+                        selection.selectedIds - articleId
+                    } else selection.selectedIds + articleId,
+                ) else selection
+                Clear -> if (editable) selection.copy(selectedIds = emptySet()) else selection
+                Loading -> selection.copy(busy = true, confirmation = null)
+                is Selected -> selection.copy(selectedIds = articleIds, busy = false)
+                is Confirmation -> selection.copy(confirmation = plan, busy = false)
+                DismissConfirmation -> selection.copy(confirmation = null)
+                is Downloaded -> ArticleSelectionState(
+                    active = result.failedIds.isNotEmpty(),
+                    selectedIds = result.failedIds,
+                )
+                is Failed -> selection.copy(busy = false)
+            }
+            return oldState.copy(selectionState = next)
+        }
+
+        data class Enter(val articleId: String?) : Selection
+        data object Exit : Selection
+        data class Toggle(val articleId: String) : Selection
+        data object Clear : Selection
+        data object Loading : Selection
+        data class Selected(val articleIds: Set<String>) : Selection
+        data class Confirmation(val plan: SelectedDownloadPlan) : Selection
+        data object DismissConfirmation : Selection
+        data class Downloaded(val result: SelectedDownloadResult) : Selection
+        data class Failed(val msg: String) : Selection
+    }
 
     sealed interface LoadingDialog : ArticlePartialStateChange {
         data object Show : LoadingDialog {

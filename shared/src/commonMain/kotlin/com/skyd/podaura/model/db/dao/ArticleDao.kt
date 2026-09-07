@@ -351,6 +351,9 @@ interface ArticleDao {
     @RawQuery(observedEntities = [ArticleBean::class])
     suspend fun getArticleList(sql: RoomRawQuery): List<ArticleWithFeed>
 
+    @RawQuery
+    suspend fun getArticleIds(sql: RoomRawQuery): List<String>
+
     @Transaction
     @Query(
         "SELECT * FROM $ARTICLE_TABLE_NAME " +

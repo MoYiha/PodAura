@@ -1,4 +1,10 @@
 <resources>
+    <string name="article_select">Select episodes</string>
+    <string name="article_selected_count">Selected: %1$d</string>
+    <string name="article_select_all">Select all</string>
+    <string name="article_deselect_all">Deselect all</string>
+    <string name="article_download_confirm">Add %1$d downloads to the queue?</string>
+    <string name="article_download_result">Queued: %1$d; already added: %2$d; no enclosure: %3$d; failed: %4$d</string>
     <string name="app_name">PodAura</string>
     <string name="feed_screen_name">Feed</string>
     <string name="feed_screen_refresh_all_subscriptions">Refresh all subscriptions</string>

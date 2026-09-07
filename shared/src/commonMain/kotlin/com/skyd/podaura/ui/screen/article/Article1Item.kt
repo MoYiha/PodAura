@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
 import androidx.compose.material.icons.outlined.AttachFile
+import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Drafts
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.outlined.ImportContacts
 import androidx.compose.material.icons.outlined.MarkEmailRead
 import androidx.compose.material.icons.outlined.MarkEmailUnread
 import androidx.compose.material.icons.outlined.OpenInBrowser
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenuPopup
@@ -51,12 +53,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
@@ -100,6 +108,7 @@ import podaura.shared.generated.resources.article_screen_mark_as_unread
 import podaura.shared.generated.resources.article_screen_no_link_tip
 import podaura.shared.generated.resources.article_screen_read
 import podaura.shared.generated.resources.article_screen_unfavorite
+import podaura.shared.generated.resources.article_select
 import podaura.shared.generated.resources.bottom_sheet_enclosure_title
 import podaura.shared.generated.resources.open_link_in_browser
 
@@ -112,6 +121,66 @@ fun Article1Item(
     onDelete: (ArticleWithFeed) -> Unit,
     onMessage: (String) -> Unit,
     onEditFeedSheet: ((String) -> Unit)? = null,
+    selected: Boolean? = null,
+    selectionEnabled: Boolean = true,
+    onToggleSelection: () -> Unit = {},
+    onEnterSelection: (() -> Unit)? = null,
+) {
+    if (selected != null) {
+        SelectableArticle1Item(
+            data = data,
+            selected = selected,
+            selectionEnabled = selectionEnabled,
+            onToggleSelection = onToggleSelection,
+            onFavorite = onFavorite,
+            onRead = onRead,
+        )
+    } else {
+        BrowsableArticle1Item(
+            data = data,
+            onEnterSelection = onEnterSelection,
+            onFavorite = onFavorite,
+            onRead = onRead,
+            onDelete = onDelete,
+            onMessage = onMessage,
+            onEditFeedSheet = onEditFeedSheet,
+        )
+    }
+}
+
+@Composable
+private fun SelectableArticle1Item(
+    data: ArticleWithFeed,
+    selected: Boolean,
+    selectionEnabled: Boolean,
+    onToggleSelection: () -> Unit,
+    onFavorite: (ArticleWithFeed, Boolean) -> Unit,
+    onRead: (ArticleWithFeed, Boolean) -> Unit,
+) {
+    Box(Modifier.clip(RoundedCornerShape(12.dp)).testTag("ArticleItem")) {
+        Article1ItemContent(
+            data = data,
+            onLongClick = {},
+            onFavorite = onFavorite,
+            onRead = onRead,
+            onShowEnclosureBottomSheet = {},
+            onEditFeedSheet = null,
+            selected = selected,
+            selectionEnabled = selectionEnabled,
+            onToggleSelection = onToggleSelection,
+        )
+    }
+}
+
+@Composable
+private fun BrowsableArticle1Item(
+    data: ArticleWithFeed,
+    onEnterSelection: (() -> Unit)?,
+    onFavorite: (ArticleWithFeed, Boolean) -> Unit,
+    onRead: (ArticleWithFeed, Boolean) -> Unit,
+    onDelete: (ArticleWithFeed) -> Unit,
+    onMessage: (String) -> Unit,
+    onEditFeedSheet: ((String) -> Unit)?,
 ) {
     val navBackStack = LocalNavBackStack.current
     val uriHandler = LocalUriHandler.current
@@ -180,6 +249,7 @@ fun Article1Item(
             )
             ArticleMenu(
                 expanded = expandMenu,
+                onEnterSelection = onEnterSelection,
                 onDismissRequest = { expandMenu = false },
                 data = data,
                 onFavorite = onFavorite,
@@ -218,12 +288,18 @@ private fun Article1ItemContent(
     onRead: (ArticleWithFeed, Boolean) -> Unit,
     onShowEnclosureBottomSheet: () -> Unit,
     onEditFeedSheet: ((String) -> Unit)?,
+    selected: Boolean? = null,
+    selectionEnabled: Boolean = true,
+    onToggleSelection: () -> Unit = {},
 ) {
     val navBackStack = LocalNavBackStack.current
     val articleTapAction = ArticleTapActionPreference.current
     val articleWithEnclosure = data.articleWithEnclosure
     val article = articleWithEnclosure.article
     val colorAlpha = if (data.articleWithEnclosure.article.isRead) 0.5f else 1f
+    val surfaceColor = MaterialTheme.colorScheme.surfaceColorAtElevation(
+        LocalAbsoluteTonalElevation.current + ArticleItemTonalElevationPreference.current.dp
+    )
 
     CompositionLocalProvider(
         LocalContentColor provides LocalContentColor.current.copy(alpha = colorAlpha)
@@ -231,17 +307,19 @@ private fun Article1ItemContent(
         Column(
             modifier = Modifier
                 .background(
-                    MaterialTheme.colorScheme.surfaceColorAtElevation(
-                        LocalAbsoluteTonalElevation.current +
-                                ArticleItemTonalElevationPreference.current.dp
-                    )
+                    if (selected == true) {
+                        MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
+                            .compositeOver(surfaceColor)
+                    } else surfaceColor
                 )
                 .fillMaxWidth()
                 .thenIf(!article.image.isNullOrBlank()) { height(IntrinsicSize.Max) }
                 .combinedClickable(
-                    onLongClick = onLongClick,
+                    enabled = selected == null || selectionEnabled,
+                    role = if (selected != null) Role.Checkbox else null,
+                    onLongClick = if (selected == null) onLongClick else null,
                     onClick = {
-                        tapAction(
+                        if (selected != null) onToggleSelection() else tapAction(
                             articleTapAction,
                             navBackStack,
                             articleWithEnclosure,
@@ -249,7 +327,14 @@ private fun Article1ItemContent(
                         )
                     },
                 )
-                .onRightClickIfSupported(onClick = onLongClick),
+                .thenIf(selected == null) { onRightClickIfSupported(onClick = onLongClick) }
+                .thenIf(selected != null) {
+                    semantics {
+                        this.selected = selected == true
+                        toggleableState =
+                            if (selected == true) ToggleableState.On else ToggleableState.Off
+                    }
+                },
         ) {
             val title = article.title?.readable().orEmpty()
 
@@ -351,36 +436,52 @@ private fun Article1ItemContent(
                     data = data,
                     colorAlpha = colorAlpha,
                     onEditFeedSheet = onEditFeedSheet,
+                    interactive = selected == null,
                 )
-                val isFavorite = articleWithEnclosure.article.isFavorite
-                val isRead = articleWithEnclosure.article.isRead
-                ArticleItemIconButton(
-                    onClick = { onFavorite(data, !isFavorite) },
-                    imageVector = if (isFavorite) {
-                        Icons.Outlined.Favorite
-                    } else {
-                        Icons.Outlined.FavoriteBorder
-                    },
-                    contentDescription = if (isFavorite) {
-                        stringResource(Res.string.article_screen_favorite)
-                    } else {
-                        stringResource(Res.string.article_screen_unfavorite)
-                    },
-                )
-                Spacer(modifier = Modifier.width(3.dp))
-                ArticleItemIconButton(
-                    onClick = { onRead(data, !isRead) },
-                    imageVector = if (isRead) {
-                        Icons.Outlined.Drafts
-                    } else {
-                        Icons.Outlined.MarkEmailUnread
-                    },
-                    contentDescription = if (isRead) {
-                        stringResource(Res.string.article_screen_mark_as_unread)
-                    } else {
-                        stringResource(Res.string.article_screen_mark_as_read)
-                    },
-                )
+                if (selected != null) {
+                    // Match the two browse actions so switching modes preserves the layout.
+                    Box(
+                        modifier = Modifier.size(width = 75.dp, height = 36.dp),
+                        contentAlignment = Alignment.CenterEnd,
+                    ) {
+                        Checkbox(
+                            checked = selected,
+                            onCheckedChange = null,
+                            enabled = selectionEnabled,
+                            modifier = Modifier.size(36.dp),
+                        )
+                    }
+                } else {
+                    val isFavorite = articleWithEnclosure.article.isFavorite
+                    val isRead = articleWithEnclosure.article.isRead
+                    ArticleItemIconButton(
+                        onClick = { onFavorite(data, !isFavorite) },
+                        imageVector = if (isFavorite) {
+                            Icons.Outlined.Favorite
+                        } else {
+                            Icons.Outlined.FavoriteBorder
+                        },
+                        contentDescription = if (isFavorite) {
+                            stringResource(Res.string.article_screen_favorite)
+                        } else {
+                            stringResource(Res.string.article_screen_unfavorite)
+                        },
+                    )
+                    Spacer(modifier = Modifier.width(3.dp))
+                    ArticleItemIconButton(
+                        onClick = { onRead(data, !isRead) },
+                        imageVector = if (isRead) {
+                            Icons.Outlined.Drafts
+                        } else {
+                            Icons.Outlined.MarkEmailUnread
+                        },
+                        contentDescription = if (isRead) {
+                            stringResource(Res.string.article_screen_mark_as_unread)
+                        } else {
+                            stringResource(Res.string.article_screen_mark_as_read)
+                        },
+                    )
+                }
             }
         }
     }
@@ -410,6 +511,7 @@ fun RowScope.ArticleItemFeedInfo(
     data: ArticleWithFeed,
     colorAlpha: Float = 1f,
     onEditFeedSheet: ((String) -> Unit)?,
+    interactive: Boolean = true,
 ) {
     val navBackStack = LocalNavBackStack.current
     val onEditFeedBlock = if (onEditFeedSheet != null) {
@@ -420,16 +522,17 @@ fun RowScope.ArticleItemFeedInfo(
         Row(
             modifier = Modifier
                 .clip(RoundedCornerShape(3.dp))
-                .combinedClickable(
-                    onLongClick = onEditFeedBlock,
-                    onClick = {
-                        val route = ArticleRoute(feedUrls = listOf(data.feed.url))
-                        if (navBackStack.lastOrNull() != route) {
-                            navBackStack.add(route)
+                .thenIf(interactive) {
+                    combinedClickable(
+                        onLongClick = onEditFeedBlock,
+                        onClick = {
+                            val route = ArticleRoute(feedUrls = listOf(data.feed.url))
+                            if (navBackStack.lastOrNull() != route) {
+                                navBackStack.add(route)
+                            }
                         }
-                    }
-                )
-                .thenIfNotNull(onEditFeedBlock) { onRightClickIfSupported(onClick = it) }
+                    ).thenIfNotNull(onEditFeedBlock) { onRightClickIfSupported(onClick = it) }
+                }
                 .padding(horizontal = 4.dp, vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -456,6 +559,7 @@ fun RowScope.ArticleItemFeedInfo(
 @Composable
 private fun ArticleMenu(
     expanded: Boolean,
+    onEnterSelection: (() -> Unit)?,
     onDismissRequest: () -> Unit,
     data: ArticleWithFeed,
     onFavorite: (ArticleWithFeed, Boolean) -> Unit,
@@ -477,7 +581,8 @@ private fun ArticleMenu(
         onDismissRequest = onDismissRequest,
     ) {
         val texts = listOf(
-            listOf(
+            listOfNotNull(
+                onEnterSelection?.let { stringResource(Res.string.article_select) },
                 stringResource(
                     if (isFavorite) Res.string.article_screen_unfavorite
                     else Res.string.article_screen_favorite
@@ -495,7 +600,8 @@ private fun ArticleMenu(
             ),
         )
         val leadingIcons = listOf(
-            listOf(
+            listOfNotNull(
+                onEnterSelection?.let { Icons.Outlined.Checklist },
                 if (isFavorite) Icons.Outlined.FavoriteBorder else Icons.Outlined.Favorite,
                 if (isRead) Icons.Outlined.MarkEmailUnread else Icons.Outlined.MarkEmailRead,
             ),
@@ -507,7 +613,13 @@ private fun ArticleMenu(
             ),
         )
         val onClicks = listOf(
-            listOf(
+            listOfNotNull(
+                onEnterSelection?.let { onSelect ->
+                    {
+                        onDismissRequest()
+                        onSelect()
+                    }
+                },
                 {
                     onFavorite(data, !isFavorite)
                     onDismissRequest()
@@ -540,7 +652,7 @@ private fun ArticleMenu(
             ),
         )
         val enables = listOf(
-            listOf(true, true),
+            List(texts.first().size) { true },
             listOf(true, true, true, articleLink != null),
         )
         val groupCount = texts.size

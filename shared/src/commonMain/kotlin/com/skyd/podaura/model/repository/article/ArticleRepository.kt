@@ -6,8 +6,8 @@ import androidx.paging.PagingData
 import androidx.room3.RoomRawQuery
 import com.skyd.podaura.ext.getOrDefault
 import com.skyd.podaura.model.bean.article.ARTICLE_TABLE_NAME
-import com.skyd.podaura.model.bean.article.ArticleDeleteResult
 import com.skyd.podaura.model.bean.article.ArticleBean
+import com.skyd.podaura.model.bean.article.ArticleDeleteResult
 import com.skyd.podaura.model.bean.article.ArticleWithFeed
 import com.skyd.podaura.model.bean.feed.FEED_TABLE_NAME
 import com.skyd.podaura.model.bean.feed.FeedBean
@@ -20,6 +20,9 @@ import com.skyd.podaura.model.preference.data.delete.KeepPlaylistArticlesPrefere
 import com.skyd.podaura.model.preference.data.delete.KeepUnreadArticlesPreference
 import com.skyd.podaura.model.preference.dataStore
 import com.skyd.podaura.model.repository.BaseRepository
+import com.skyd.podaura.model.repository.download.SelectedArticleDownloader
+import com.skyd.podaura.model.repository.download.SelectedDownloadPlan
+import com.skyd.podaura.model.repository.download.SelectedDownloadResult
 import com.skyd.podaura.model.repository.feed.RssHelper
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -136,6 +139,43 @@ class ArticleRepository(
         refreshArticleList(feedUrls = it, full = full)
     }.flowOn(Dispatchers.IO)
 
+    fun requestSelectionIds(
+        feedUrls: List<String>,
+        groupIds: List<String>,
+        articleIds: List<String>,
+        filterMask: Int,
+    ): Flow<Set<String>> = flow {
+        emit(
+            articleDao.getArticleIds(
+                genSql(
+                    feedUrls = requestRealFeedUrls(feedUrls, groupIds, articleIds).first().distinct(),
+                    articleIds = articleIds,
+                    isFavorite = FeedBean.parseFilterMaskToFavorite(filterMask),
+                    isRead = FeedBean.parseFilterMaskToRead(filterMask),
+                    isMute = FeedBean.parseFilterMaskToMute(filterMask),
+                    orderBy = FeedBean.parseFilterMaskToSort(filterMask),
+                    idsOnly = true,
+                )
+            ).toSet()
+        )
+    }.flowOn(Dispatchers.IO)
+
+    fun prepareSelectedDownloads(
+        articleIds: Set<String>,
+        downloader: SelectedArticleDownloader,
+    ): Flow<SelectedDownloadPlan> = flow {
+        val articles = articleIds.chunked(SQLITE_BIND_CHUNK_SIZE)
+            .flatMap { articleDao.getArticleWithFeedListByIds(it) }
+        emit(downloader.prepare(articleIds, articles))
+    }.flowOn(Dispatchers.IO)
+
+    fun downloadSelectedArticles(
+        plan: SelectedDownloadPlan,
+        downloader: SelectedArticleDownloader,
+    ): Flow<SelectedDownloadResult> = flow {
+        emit(downloader.execute(plan))
+    }.flowOn(Dispatchers.IO)
+
     class RefreshFeedsException(msg: String) : RuntimeException(msg)
 
     override fun refreshArticleList(feedUrls: List<String>, full: Boolean): Flow<Unit> = flow {
@@ -215,6 +255,9 @@ class ArticleRepository(
     }.flowOn(Dispatchers.IO)
 
     companion object {
+        // Stay below the 999 bind-parameter limit of older SQLite versions.
+        private const val SQLITE_BIND_CHUNK_SIZE = 900
+
         fun genSql(
             feedUrls: List<String>,
             articleIds: List<String>,
@@ -222,10 +265,12 @@ class ArticleRepository(
             isRead: Boolean?,
             isMute: Boolean?,
             orderBy: FeedBean.SortBy,
+            idsOnly: Boolean = false,
         ): RoomRawQuery {
             val args = mutableListOf<String>()
             val sql = buildString {
-                append("SELECT DISTINCT * FROM `$ARTICLE_TABLE_NAME` WHERE 1 ")
+                val columns = if (idsOnly) "`${ArticleBean.ARTICLE_ID_COLUMN}`" else "*"
+                append("SELECT DISTINCT $columns FROM `$ARTICLE_TABLE_NAME` WHERE 1 ")
                 if (isFavorite != null) {
                     append("AND `${ArticleBean.IS_FAVORITE_COLUMN}` = ${if (isFavorite) 1 else 0} ")
                 }

@@ -28,19 +28,7 @@ abstract class DownloadStarter {
         constraints: DownloadConstraints = DownloadConstraints(),
     ) {
         withContext(Dispatchers.IO) {
-            val articleId = articleDownloadSource?.articleId
-                ?: get<EnclosureDao>().getMediaArticleId(url)
-            val article =
-                articleId?.let { get<ArticleDao>().getArticleWithFeed(it).first() }
-            val feed = article?.feed
-                ?: articleDownloadSource?.feedUrl?.let { get<FeedDao>().getFeed(it) }
-            val group = feed?.groupId?.let { get<GroupDao>().getGroupById(it) }
-            val saveDir = get<MediaRepository>().getFolder(
-                parentFile = PlatformFile(dataStore.getOrDefault(MediaLibLocationPreference)),
-                groupName = group?.name,
-                feedUrl = feed?.url,
-                displayName = feed?.title,
-            ).first().path
+            val saveDir = downloadDirectory(url, articleDownloadSource)
             if (url.startsWith("magnet:")) {
                 // todo open link
             } else {
@@ -52,6 +40,25 @@ abstract class DownloadStarter {
                 )
             }
         }
+    }
+
+    internal suspend fun downloadDirectory(
+        url: String,
+        articleDownloadSource: ArticleDownloadSource?,
+    ): String = withContext(Dispatchers.IO) {
+        val articleId = articleDownloadSource?.articleId
+            ?: get<EnclosureDao>().getMediaArticleId(url)
+        val article =
+            articleId?.let { get<ArticleDao>().getArticleWithFeed(it).first() }
+        val feed = article?.feed
+            ?: articleDownloadSource?.feedUrl?.let { get<FeedDao>().getFeed(it) }
+        val group = feed?.groupId?.let { get<GroupDao>().getGroupById(it) }
+        get<MediaRepository>().getFolder(
+            parentFile = PlatformFile(dataStore.getOrDefault(MediaLibLocationPreference)),
+            groupName = group?.name,
+            feedUrl = feed?.url,
+            displayName = feed?.title,
+        ).first().path
     }
 
     open fun openNotificationSettings() = Unit

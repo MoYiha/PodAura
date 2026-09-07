@@ -11,6 +11,7 @@ data class ArticleState(
     val articleListState: ArticleListState,
     val editFeedUrl: String?,
     val loadingDialog: Boolean,
+    val selectionState: ArticleSelectionState = ArticleSelectionState(),
 ) : MviViewState {
     companion object {
         fun initial() = ArticleState(

@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="article_select">多選單集</string>
+    <string name="article_selected_count">已選：%1$d</string>
+    <string name="article_select_all">全選</string>
+    <string name="article_deselect_all">取消全選</string>
+    <string name="article_download_confirm">將 %1$d 個下載任務加入佇列？</string>
+    <string name="article_download_result">已加入：%1$d；已有：%2$d；無附件：%3$d；失敗：%4$d</string>
     <string name="app_name">PodAura</string>
     <string name="feed_screen_name">訂閱</string>
     <string name="feed_screen_refresh_all_subscriptions">重新整理所有訂閱</string>

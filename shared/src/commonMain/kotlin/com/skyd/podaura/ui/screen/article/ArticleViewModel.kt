@@ -4,15 +4,18 @@ import androidx.lifecycle.viewModelScope
 import androidx.paging.cachedIn
 import com.skyd.mvi.AbstractMviViewModel
 import com.skyd.podaura.ext.catchMap
+import com.skyd.podaura.ext.flattenFirst
 import com.skyd.podaura.ext.startWith
 import com.skyd.podaura.model.repository.article.ArticleRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.filterNot
 import kotlinx.coroutines.flow.flatMapConcat
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
@@ -43,6 +46,12 @@ class ArticleViewModel(
     private fun Flow<ArticlePartialStateChange>.sendSingleEvent(): Flow<ArticlePartialStateChange> {
         return onEach { change ->
             val event = when (change) {
+                is ArticlePartialStateChange.Selection.Downloaded ->
+                    ArticleEvent.SelectionResultEvent.Downloaded(change.result)
+
+                is ArticlePartialStateChange.Selection.Failed ->
+                    ArticleEvent.SelectionResultEvent.Failed(change.msg)
+
                 is ArticlePartialStateChange.Init.Failed ->
                     ArticleEvent.InitArticleListResultEvent.Failed(change.msg)
 
@@ -71,6 +80,19 @@ class ArticleViewModel(
 
     private fun Flow<ArticleIntent>.toArticlePartialStateChangeFlow(): Flow<ArticlePartialStateChange> {
         return merge(
+            toSelectionRequestPartialStateChangeFlow(),
+            filterIsInstance<ArticleIntent.Selection.Enter>().map {
+                ArticlePartialStateChange.Selection.Enter(it.articleId)
+            },
+            filterIsInstance<ArticleIntent.Selection.Toggle>().map {
+                ArticlePartialStateChange.Selection.Toggle(it.articleId)
+            },
+            filterIsInstance<ArticleIntent.Selection.Clear>().map {
+                ArticlePartialStateChange.Selection.Clear
+            },
+            filterIsInstance<ArticleIntent.Selection.DismissConfirmation>().map {
+                ArticlePartialStateChange.Selection.DismissConfirmation
+            },
             filterIsInstance<ArticleIntent.Init>().flatMapConcat { intent ->
                 combine(
                     articleRepo.requestFilterMask(),
@@ -90,16 +112,18 @@ class ArticleViewModel(
                     ArticlePartialStateChange.Init.Failed(it.message.toString())
                 }
             },
-            filterIsInstance<ArticleIntent.UpdateFilter>().flatMapConcat { intent ->
-                articleRepo.updateFilterMask(
-                    feedUrls = intent.feedUrls,
-                    groupIds = intent.groupIds,
-                    articleIds = intent.articleIds,
-                    filterMask = intent.filterMask,
-                ).map {
-                    ArticlePartialStateChange.UpdateFilter.Success(intent.filterMask)
-                }
-            },
+            filterIsInstance<ArticleIntent.UpdateFilter>()
+                .filter { !viewState.value.selectionState.active }
+                .flatMapConcat { intent ->
+                    articleRepo.updateFilterMask(
+                        feedUrls = intent.feedUrls,
+                        groupIds = intent.groupIds,
+                        articleIds = intent.articleIds,
+                        filterMask = intent.filterMask,
+                    ).map {
+                        ArticlePartialStateChange.UpdateFilter.Success(intent.filterMask)
+                    }
+                },
             filterIsInstance<ArticleIntent.Refresh>().flatMapConcat { intent ->
                 articleRepo.requestRealFeedUrls(
                     feedUrls = intent.feedUrls,
@@ -139,5 +163,59 @@ class ArticleViewModel(
                 flowOf(ArticlePartialStateChange.OnEditFeedDialog(intent.feedUrl))
             },
         )
+    }
+
+    private fun Flow<ArticleIntent>.toSelectionRequestPartialStateChangeFlow(): Flow<ArticlePartialStateChange> {
+        val selectionIntents = filterIsInstance<ArticleIntent.Selection>().filter {
+            viewState.value.selectionState.let { it.active && !it.busy }
+        }
+        val requests = merge<Flow<ArticlePartialStateChange>>(
+            selectionIntents.filterIsInstance<ArticleIntent.Selection.SelectAll>()
+                .filter { viewState.value.selectionState.confirmation == null }
+                .map { intent ->
+                    articleRepo.requestSelectionIds(
+                        feedUrls = intent.feedUrls,
+                        groupIds = intent.groupIds,
+                        articleIds = intent.articleIds,
+                        filterMask = intent.filterMask,
+                    ).map {
+                        ArticlePartialStateChange.Selection.Selected(it)
+                    }.startWith(ArticlePartialStateChange.Selection.Loading).catchMap {
+                        ArticlePartialStateChange.Selection.Failed(it.message.toString())
+                    }
+                },
+            selectionIntents.filterIsInstance<ArticleIntent.Selection.Download>()
+                .filter {
+                    it.articleIds.isNotEmpty() && viewState.value.selectionState.confirmation == null
+                }
+                .map { intent ->
+                    articleRepo.prepareSelectedDownloads(intent.articleIds, intent.downloader)
+                        .flatMapConcat { plan ->
+                            if (intent.articleIds.size > 100) {
+                                flowOf(ArticlePartialStateChange.Selection.Confirmation(plan))
+                            } else {
+                                articleRepo.downloadSelectedArticles(plan, intent.downloader).map {
+                                    ArticlePartialStateChange.Selection.Downloaded(it)
+                                }
+                            }
+                        }.startWith(ArticlePartialStateChange.Selection.Loading).catchMap {
+                            ArticlePartialStateChange.Selection.Failed(it.message.toString())
+                        }
+                },
+            selectionIntents.filterIsInstance<ArticleIntent.Selection.ConfirmDownload>()
+                .filter { it.plan == viewState.value.selectionState.confirmation }
+                .map { intent ->
+                    articleRepo.downloadSelectedArticles(intent.plan, intent.downloader).map {
+                        ArticlePartialStateChange.Selection.Downloaded(it)
+                    }.startWith(ArticlePartialStateChange.Selection.Loading).catchMap {
+                        ArticlePartialStateChange.Selection.Failed(it.message.toString())
+                    }
+                },
+        )
+        return filter { it is ArticleIntent.Init || it is ArticleIntent.Selection.Exit }
+            .startWith(ArticleIntent.Selection.Exit)
+            .flatMapLatest {
+                requests.flattenFirst().startWith(ArticlePartialStateChange.Selection.Exit)
+            }
     }
 }
