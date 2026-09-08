@@ -55,8 +55,6 @@ import com.skyd.podaura.model.preference.rss.ParseLinkTagAsEnclosurePreference
 import com.skyd.podaura.model.repository.download.rememberDownloadStarter
 import com.skyd.podaura.model.repository.download.DownloadStarter
 import com.skyd.podaura.ui.component.AnimatedDismissModalBottomSheet
-import com.skyd.podaura.ui.player.jumper.PlayDataMode
-import com.skyd.podaura.ui.player.jumper.rememberPlayerJumper
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import podaura.shared.generated.resources.Res
@@ -83,6 +81,7 @@ fun EnclosureBottomSheet(
     onDismissRequest: () -> Unit,
     dataList: List<Any>,
     article: ArticleWithFeed,
+    onPlay: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -144,14 +143,14 @@ fun EnclosureBottomSheet(
                         if (item is EnclosureBean) {
                             EnclosureItem(
                                 enclosure = item,
-                                article = article,
                                 onDownload = onDownload,
+                                onPlay = onPlay,
                             )
                         } else if (item is LinkEnclosureBean) {
                             LinkEnclosureItem(
                                 enclosure = item,
-                                article = article,
                                 onDownload = onDownload,
+                                onPlay = onPlay,
                             )
                         }
                     }
@@ -168,11 +167,10 @@ fun EnclosureBottomSheet(
 @Composable
 private fun EnclosureItem(
     enclosure: EnclosureBean,
-    article: ArticleWithFeed,
     onDownload: (EnclosureBean) -> Unit,
+    onPlay: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val articleWithEnclosure = article.articleWithEnclosure
 
     Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
@@ -215,16 +213,10 @@ private fun EnclosureItem(
         }
         Spacer(modifier = Modifier.width(12.dp))
         if (enclosure.isMedia) {
-            val playerJumper = rememberPlayerJumper()
             ComponeIconButton(
                 onClick = {
                     try {
-                        playerJumper.jump(
-                            PlayDataMode.ArticleList(
-                                articleId = articleWithEnclosure.article.articleId,
-                                url = enclosure.url,
-                            )
-                        )
+                        onPlay(enclosure.url)
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
@@ -244,12 +236,10 @@ private fun EnclosureItem(
 @Composable
 private fun LinkEnclosureItem(
     enclosure: LinkEnclosureBean,
-    article: ArticleWithFeed,
     onDownload: (LinkEnclosureBean) -> Unit,
+    onPlay: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val articleWithEnclosure = article.articleWithEnclosure
-    val playerJumper = rememberPlayerJumper()
     Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
             var openMenu by rememberSaveable { mutableStateOf(false) }
@@ -281,12 +271,7 @@ private fun LinkEnclosureItem(
             ComponeIconButton(
                 onClick = {
                     try {
-                        playerJumper.jump(
-                            PlayDataMode.ArticleList(
-                                articleId = articleWithEnclosure.article.articleId,
-                                url = enclosure.link,
-                            )
-                        )
+                        onPlay(enclosure.link)
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }

@@ -109,6 +109,7 @@ import com.skyd.podaura.ui.component.navigation.deeplink.DeepLinkPattern
 import com.skyd.podaura.ui.component.rememberTextSharing
 import com.skyd.podaura.ui.component.webview.HtmlStyleMode
 import com.skyd.podaura.ui.component.webview.PodAuraWebView
+import com.skyd.podaura.ui.player.jumper.ArticlePlaylistSource
 import com.skyd.podaura.ui.player.jumper.PlayDataMode
 import com.skyd.podaura.ui.player.jumper.rememberPlayerJumper
 import com.skyd.podaura.ui.screen.article.ArticleRoute
@@ -154,7 +155,10 @@ import podaura.shared.generated.resources.translation_translated
 import podaura.shared.generated.resources.translation_translating
 
 @Serializable
-data class ReadRoute(@SerialName("articleId") val articleId: String) : NavKey {
+data class ReadRoute(
+    @SerialName("articleId") val articleId: String,
+    val playlistSource: ArticlePlaylistSource = ArticlePlaylistSource.Subscription,
+) : NavKey {
 
     fun toDeeplink(): String = "$BASE_PATH/$articleId"
 
@@ -168,7 +172,11 @@ data class ReadRoute(@SerialName("articleId") val articleId: String) : NavKey {
 
         @Composable
         fun ReadLauncher(route: ReadRoute, windowInsets: WindowInsets = WindowInsets.safeDrawing) {
-            ReadScreen(articleId = route.articleId, windowInsets = windowInsets)
+            ReadScreen(
+                articleId = route.articleId,
+                windowInsets = windowInsets,
+                playlistSource = route.playlistSource,
+            )
         }
     }
 }
@@ -177,7 +185,8 @@ data class ReadRoute(@SerialName("articleId") val articleId: String) : NavKey {
 fun ReadScreen(
     articleId: String,
     viewModel: ReadViewModel = koinViewModel(),
-    windowInsets: WindowInsets = WindowInsets.safeDrawing
+    windowInsets: WindowInsets = WindowInsets.safeDrawing,
+    playlistSource: ArticlePlaylistSource = ArticlePlaylistSource.Subscription,
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val navBackStack = LocalNavBackStack.current
@@ -185,6 +194,17 @@ fun ReadScreen(
     val uriHandler = LocalUriHandler.current
     val playerJumper = rememberPlayerJumper()
     val mediaNotExistsMessage = stringResource(Res.string.media_not_exists)
+
+    fun playMedia(url: String, startPositionSeconds: Long? = null) {
+        playerJumper.jump(
+            PlayDataMode.ArticleList(
+                articleId = articleId,
+                url = url,
+                startPositionSeconds = startPositionSeconds,
+                playlistSource = playlistSource,
+            )
+        )
+    }
 
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -356,6 +376,7 @@ fun ReadScreen(
                 is ArticleState.Success -> {
                     Content(
                         articleState = articleState,
+                        onPlay = { playMedia(it) },
                         translationState = uiState.translationState,
                         onTranslationDisplayModeChange = {
                             dispatcher(ReadIntent.SelectTranslationDisplayMode(it))
@@ -380,6 +401,7 @@ fun ReadScreen(
                                 getEnclosuresList(articleState.article.articleWithEnclosure)
                             },
                             article = articleState.article,
+                            onPlay = { playMedia(it) },
                         )
                     }
                 }
@@ -395,12 +417,9 @@ fun ReadScreen(
 
                 is ReadEvent.FullContentResultEvent.Failed -> snackbarHostState.showSnackbar(event.msg)
 
-                is ReadEvent.PlayTimestampResultEvent.OpenPlayer -> playerJumper.jump(
-                    PlayDataMode.ArticleList(
-                        articleId = event.articleId,
-                        url = event.mediaUrl,
-                        startPositionSeconds = event.positionSeconds,
-                    )
+                is ReadEvent.PlayTimestampResultEvent.OpenPlayer -> playMedia(
+                    url = event.mediaUrl,
+                    startPositionSeconds = event.positionSeconds,
                 )
 
                 ReadEvent.PlayTimestampResultEvent.MediaNotExists ->
@@ -477,13 +496,13 @@ private fun CategoryArea(categories: List<ArticleCategoryBean>) {
 @Composable
 private fun Content(
     articleState: ArticleState.Success,
+    onPlay: (String) -> Unit,
     translationState: TranslationState,
     onTranslationDisplayModeChange: (TranslationDisplayMode) -> Unit,
     onCancelTranslation: () -> Unit,
     onTimestampClick: (mediaUrl: String?, positionSeconds: Long) -> Unit,
 ) {
     val article = articleState.article.articleWithEnclosure
-    val playerJumper = rememberPlayerJumper()
     val imagePreviewOpener = rememberImagePreviewOpener()
     val firstMediaUrl = remember(article) {
         article.enclosures.firstOrNull { it.isMedia }?.url
@@ -628,14 +647,7 @@ private fun Content(
             }
         }
     }
-    MediaRow(articleWithFeed = articleState.article, onPlay = { url ->
-        playerJumper.jump(
-            PlayDataMode.ArticleList(
-                articleId = article.article.articleId,
-                url = url,
-            )
-        )
-    })
+    MediaRow(articleWithFeed = articleState.article, onPlay = onPlay)
     PodAuraWebView(
         modifier = Modifier.fillMaxWidth(),
         content = displayedHtml,

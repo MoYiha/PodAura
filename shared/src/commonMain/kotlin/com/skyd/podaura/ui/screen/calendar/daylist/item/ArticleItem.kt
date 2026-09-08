@@ -32,11 +32,12 @@ import com.skyd.podaura.ext.readable
 import com.skyd.podaura.model.bean.article.ArticleWithFeed
 import com.skyd.podaura.ui.component.PodAuraImage
 import com.skyd.podaura.ui.component.rememberPodAuraImageLoader
+import com.skyd.podaura.ui.player.jumper.ArticlePlaylistSource
 import com.skyd.podaura.ui.screen.feed.FeedIcon
 import com.skyd.podaura.ui.screen.read.ReadRoute
 
 @Composable
-fun ArticleItem(articleWithFeed: ArticleWithFeed) {
+fun ArticleItem(articleWithFeed: ArticleWithFeed, day: Long) {
     val navBackStack = LocalNavBackStack.current
     val articleWithEnclosure = articleWithFeed.articleWithEnclosure
     val article = articleWithEnclosure.article
@@ -46,7 +47,14 @@ fun ArticleItem(articleWithFeed: ArticleWithFeed) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { navBackStack.add(ReadRoute(articleId = article.articleId)) }
+            .clickable {
+                navBackStack.add(
+                    ReadRoute(
+                        articleId = article.articleId,
+                        playlistSource = ArticlePlaylistSource.CalendarDay(day),
+                    )
+                )
+            }
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

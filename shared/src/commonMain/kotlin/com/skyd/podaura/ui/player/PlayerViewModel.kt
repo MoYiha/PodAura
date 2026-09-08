@@ -4,10 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.skyd.podaura.ext.getOrDefaultSuspend
 import com.skyd.podaura.model.bean.playlist.PlaylistMediaWithArticleBean
+import com.skyd.podaura.model.preference.behavior.calendar.CalendarHideMutedArticlePreference
 import com.skyd.podaura.model.preference.behavior.playlist.ReverseLoadArticlePlaylistPreference
 import com.skyd.podaura.model.preference.dataStore
+import com.skyd.podaura.model.preference.rss.ParseLinkTagAsEnclosurePreference
 import com.skyd.podaura.model.repository.player.PlayerRepository
 import com.skyd.podaura.model.repository.playlist.IPlaylistMediaRepository
+import com.skyd.podaura.ui.player.jumper.ArticlePlaylistSource
 import com.skyd.podaura.ui.player.jumper.PlayDataMode
 import io.github.vinceglb.filekit.PlatformFile
 import io.github.vinceglb.filekit.path
@@ -45,12 +48,24 @@ class PlayerViewModel(
                 when (playDataMode) {
                     is PlayDataMode.ArticleList -> PlayerLaunchData(
                         startPath = playDataMode.url,
-                        playlist = playerRepo.requestPlaylistByArticleId(
-                            articleId = playDataMode.articleId,
-                            reverse = dataStore.getOrDefaultSuspend(
-                                ReverseLoadArticlePlaylistPreference
-                            ),
-                        ),
+                        playlist = when (val source = playDataMode.playlistSource) {
+                            ArticlePlaylistSource.Subscription -> playerRepo.requestPlaylistByArticleId(
+                                articleId = playDataMode.articleId,
+                                reverse = dataStore.getOrDefaultSuspend(
+                                    ReverseLoadArticlePlaylistPreference
+                                ),
+                            )
+
+                            is ArticlePlaylistSource.CalendarDay -> playerRepo.requestPlaylistByCalendarDay(
+                                day = source.day,
+                                excludeMuted = dataStore.getOrDefaultSuspend(
+                                    CalendarHideMutedArticlePreference
+                                ),
+                                includeMediaLinks = dataStore.getOrDefaultSuspend(
+                                    ParseLinkTagAsEnclosurePreference
+                                ),
+                            )
+                        },
                         startPositionSeconds = playDataMode.startPositionSeconds,
                         requestId = requestId,
                     )

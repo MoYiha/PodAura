@@ -107,7 +107,7 @@ fun DayList(
                                     }
                                 } else if (item is ArticleWithFeed) {
                                     item(key = keyGenerator(i)) {
-                                        ArticleItem(item)
+                                        ArticleItem(item, day = day)
                                     }
                                 }
                             }

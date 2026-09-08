@@ -24,6 +24,7 @@ sealed interface PlayDataMode {
         val articleId: String,
         val url: String,
         val startPositionSeconds: Long? = null,
+        val playlistSource: ArticlePlaylistSource = ArticlePlaylistSource.Subscription,
     ) : PlayDataMode
 
     @Serializable

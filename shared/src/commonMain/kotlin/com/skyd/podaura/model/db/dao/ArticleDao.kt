@@ -26,6 +26,15 @@ import kotlinx.coroutines.flow.Flow
 
 private const val ARTICLE_DELETE_BIND_CHUNK_SIZE = 900
 
+private const val ARTICLES_IN_RANGE_QUERY =
+    "SELECT * FROM $ARTICLE_TABLE_NAME A " +
+            "WHERE ${ArticleBean.DATE_COLUMN} >= :startTimestamp AND ${ArticleBean.DATE_COLUMN} < :endTimestamp AND " +
+            "(NOT :excludeMuted OR NOT EXISTS (" +
+            "    SELECT 1 FROM $FEED_TABLE_NAME F " +
+            "    WHERE F.${FeedBean.URL_COLUMN} = A.${ArticleBean.FEED_URL_COLUMN} AND " +
+            "    ${FeedBean.MUTE_COLUMN} = 1))" +
+            "ORDER BY ${ArticleBean.DATE_COLUMN} ASC, ${ArticleBean.ARTICLE_ID_COLUMN} ASC"
+
 @Dao
 @DaoReturnTypeConverters(PagingSourceDaoReturnTypeConverter::class)
 interface ArticleDao {
@@ -314,20 +323,20 @@ interface ArticleDao {
     fun getArticlePagingSource(sql: RoomRawQuery): PagingSource<Int, ArticleWithFeed>
 
     @Transaction
-    @Query(
-        "SELECT * FROM $ARTICLE_TABLE_NAME A " +
-                "WHERE ${ArticleBean.DATE_COLUMN} >= :startTimestamp AND ${ArticleBean.DATE_COLUMN} < :endTimestamp AND " +
-                "(NOT :excludeMuted OR NOT EXISTS (" +
-                "    SELECT 1 FROM $FEED_TABLE_NAME F " +
-                "    WHERE F.${FeedBean.URL_COLUMN} = A.${ArticleBean.FEED_URL_COLUMN} AND " +
-                "    ${FeedBean.MUTE_COLUMN} = 1))" +
-                "ORDER BY ${ArticleBean.DATE_COLUMN} ASC"
-    )
+    @Query(ARTICLES_IN_RANGE_QUERY)
     fun getArticlesIn(
         startTimestamp: Long,
         endTimestamp: Long,
         excludeMuted: Boolean,
     ): PagingSource<Int, ArticleWithFeed>
+
+    @Transaction
+    @Query(ARTICLES_IN_RANGE_QUERY)
+    suspend fun getArticleListIn(
+        startTimestamp: Long,
+        endTimestamp: Long,
+        excludeMuted: Boolean,
+    ): List<ArticleWithFeed>
 
     @Transaction
     @Query(

@@ -23,6 +23,19 @@ class PlayDataModeTest {
         ) as PlayDataMode.ArticleList
 
         assertNull(mode.startPositionSeconds)
+        assertEquals(ArticlePlaylistSource.Subscription, mode.playlistSource)
+    }
+
+    @Test
+    fun calendarArticleListPreservesDayAndTimestamp() {
+        val mode = PlayDataMode.ArticleList(
+            articleId = "article-id",
+            url = "https://example.com/audio.mp3",
+            startPositionSeconds = 83,
+            playlistSource = ArticlePlaylistSource.CalendarDay(1_788_796_800_000),
+        )
+
+        assertEquals(mode, PlayDataMode.decodeFromString(mode.encodeToString()))
     }
 
     @Test

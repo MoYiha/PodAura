@@ -1,6 +1,8 @@
 package com.skyd.podaura.model.repository.player
 
+import com.skyd.fundation.ext.nextMidnight
 import com.skyd.podaura.ext.asPlatformFile
+import com.skyd.podaura.model.bean.LinkEnclosureBean
 import com.skyd.podaura.model.bean.history.MediaPlayHistoryBean
 import com.skyd.podaura.model.bean.playlist.PlaylistMediaBean
 import com.skyd.podaura.model.bean.playlist.PlaylistMediaWithArticleBean
@@ -85,6 +87,33 @@ class PlayerRepository(
                 )
             }
         }.run { if (reverse) reversed() else this }
+    }
+
+    suspend fun requestPlaylistByCalendarDay(
+        day: Long,
+        excludeMuted: Boolean,
+        includeMediaLinks: Boolean,
+    ): List<PlaylistMediaWithArticleBean> {
+        val articles = articleDao.getArticleListIn(day, day.nextMidnight(), excludeMuted)
+        return articles.flatMap { articleWithFeed ->
+            val article = articleWithFeed.articleWithEnclosure
+            val urls = article.enclosures.filter { it.isMedia }.map { it.url }.toMutableList()
+            if (includeMediaLinks) {
+                article.article.link?.takeIf { LinkEnclosureBean(it).isMedia }?.let { urls += it }
+            }
+            urls.distinct().map { url -> articleWithFeed to url }
+        }.mapIndexed { index, (article, url) ->
+            PlaylistMediaWithArticleBean(
+                playlistMediaBean = PlaylistMediaBean(
+                    playlistId = "",
+                    url = url,
+                    articleId = article.articleWithEnclosure.article.articleId,
+                    orderPosition = index.toDouble(),
+                    createTime = Clock.System.now().toEpochMilliseconds(),
+                ),
+                article = article,
+            )
+        }
     }
 
     suspend fun requestPlaylistByMediaLibraryList(

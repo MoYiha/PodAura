@@ -92,6 +92,8 @@ import com.skyd.podaura.ui.component.PodAuraImage
 import com.skyd.podaura.ui.component.dialog.DeleteArticleWarningDialog
 import com.skyd.podaura.ui.component.swipe.SwipeAction
 import com.skyd.podaura.ui.component.swipe.SwipeableActionsBox
+import com.skyd.podaura.ui.player.jumper.PlayDataMode
+import com.skyd.podaura.ui.player.jumper.rememberPlayerJumper
 import com.skyd.podaura.ui.screen.article.enclosure.EnclosureBottomSheet
 import com.skyd.podaura.ui.screen.article.enclosure.getEnclosuresList
 import com.skyd.podaura.ui.screen.feed.FeedIcon
@@ -262,10 +264,19 @@ private fun BrowsableArticle1Item(
     }
 
     if (openEnclosureBottomSheet) {
+        val playerJumper = rememberPlayerJumper()
         EnclosureBottomSheet(
             onDismissRequest = { openEnclosureBottomSheet = false },
             dataList = remember(data) { getEnclosuresList(data.articleWithEnclosure) },
             article = data,
+            onPlay = { url ->
+                playerJumper.jump(
+                    PlayDataMode.ArticleList(
+                        articleId = data.articleWithEnclosure.article.articleId,
+                        url = url,
+                    )
+                )
+            },
         )
     }
     if (openAddToPlaylistSheet) {
