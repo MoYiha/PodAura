@@ -59,7 +59,7 @@ class PlaylistRepository(
                 CREATE_TIME -> PlaylistBean.CREATE_TIME_COLUMN
                 else -> PlaylistBean.ORDER_POSITION_COLUMN
             }
-            val realSortAsc = if (sortBy == MANUAL) true else sortAsc
+            val realSortAsc = sortBy == MANUAL || sortAsc
             Pager(pagingConfig) {
                 playlistDao.getPlaylistList(
                     orderByColumnName = sortByColumnName,

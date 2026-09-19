@@ -5,10 +5,10 @@ plugins {
 android {
     namespace = "com.skyd.macrobenchmark"
     compileSdk {
-        version = release(37) { minorApiLevel = 1 }
+        version = release(37) { minorApiLevel = 2 }
     }
     buildToolsVersion = "37.0.0"
-    ndkVersion = "29.0.14206865"
+    ndkVersion = "30.0.16248370"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_25

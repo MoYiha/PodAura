@@ -92,8 +92,8 @@ internal fun ExternalUrlHandler.UrlData.toNavKey(): NavKey? {
     }
     return match?.let {
         json.decodeFromJsonElement(match.serializer, buildJsonObject {
-            for (entry in match.args) {
-                put(entry.key, entry.value)
+            for ((key, value) in match.args) {
+                put(key, value)
             }
             url?.let { put(ExternalUrlHandler.UrlData.URL_NAME, JsonPrimitive(it)) }
             mimeType?.let { put(ExternalUrlHandler.UrlData.MIMETYPE_NAME, JsonPrimitive(it)) }

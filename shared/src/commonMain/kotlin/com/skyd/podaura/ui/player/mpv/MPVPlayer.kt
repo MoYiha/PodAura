@@ -239,10 +239,10 @@ class MPVPlayer {
 
     // Written on the mpv event thread, read from the UI thread: hold immutable lists and swap them
     // atomically instead of mutating shared MutableLists in place.
-    private val tracks = mutableMapOf(
-        "audio" to emptyList<Track>(),
-        "video" to emptyList<Track>(),
-        "sub" to emptyList<Track>(),
+    private val tracks: MutableMap<String, List<Track>> = mutableMapOf(
+        "audio" to emptyList(),
+        "video" to emptyList(),
+        "sub" to emptyList(),
     )
 
     val subtitleTrack: List<Track>
@@ -569,7 +569,7 @@ class MPVPlayer {
         try {
             playlistFile.writeString("#EXTM3U\n${files.joinToString("\n")}\n")
             // Loading a playlist file applies mpv's startup shuffle option. The old per-file path
-            // did not, so suppress it while parsing and restore the stored UI mode afterwards.
+            // did not, so suppress it while parsing and restore the stored UI mode afterward.
             if (shuffleEnabled) mpv.setPropertyBoolean("shuffle", false)
             playerTrace("Player/LoadList") {
                 mpv.command("loadlist", playlistFile.path, "replace")
@@ -628,9 +628,9 @@ class MPVPlayer {
             }
         }
         val targetIndex = indexById ?: path?.let { expectedPath ->
-            (0 until count).filter { index ->
+            (0 until count).singleOrNull { index ->
                 mpv.getPropertyString("playlist/$index/filename") == expectedPath
-            }.singleOrNull()
+            }
         } ?: return false
 
         playMediaAtIndex(targetIndex)
@@ -703,9 +703,7 @@ class MPVPlayer {
     fun screenshot(onSaveScreenshot: (PlatformFile) -> Unit) {
         val format = "jpg"
         val filename =
-            "$filename-(${
-                timePos.toLong().toDurationString(splitter = "-")
-            })-${Random.Default.nextInt()}"
+            "$filename-(${timePos.toLong().toDurationString(splitter = "-")})-${Random.nextInt()}"
         mpv.option("screenshot-format", format)
         mpv.option("screenshot-template", filename)
         mpv.command("screenshot")

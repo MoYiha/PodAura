@@ -1,11 +1,11 @@
 package com.skyd.podaura.ui.window
 
-import io.github.vinceglb.filekit.PlatformFile
 import com.skyd.fundation.config.appDirectories
 import com.skyd.fundation.util.Platform
 import com.skyd.fundation.util.platform
 import com.sun.jna.Native
 import com.sun.jna.win32.StdCallLibrary
+import io.github.vinceglb.filekit.PlatformFile
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import java.awt.Desktop

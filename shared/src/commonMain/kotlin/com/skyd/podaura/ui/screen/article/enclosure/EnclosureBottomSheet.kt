@@ -27,11 +27,11 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,8 +52,8 @@ import com.skyd.podaura.model.bean.article.EnclosureBean
 import com.skyd.podaura.model.download.ArticleDownloadSource
 import com.skyd.podaura.model.preference.dataStore
 import com.skyd.podaura.model.preference.rss.ParseLinkTagAsEnclosurePreference
-import com.skyd.podaura.model.repository.download.rememberDownloadStarter
 import com.skyd.podaura.model.repository.download.DownloadStarter
+import com.skyd.podaura.model.repository.download.rememberDownloadStarter
 import com.skyd.podaura.ui.component.AnimatedDismissModalBottomSheet
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
@@ -61,10 +61,10 @@ import podaura.shared.generated.resources.Res
 import podaura.shared.generated.resources.bottom_sheet_enclosure_title
 import podaura.shared.generated.resources.copy
 import podaura.shared.generated.resources.download
-import podaura.shared.generated.resources.enclosure_item_link_tag
-import podaura.shared.generated.resources.play
 import podaura.shared.generated.resources.download_without_notifications_tip
+import podaura.shared.generated.resources.enclosure_item_link_tag
 import podaura.shared.generated.resources.open_notification_settings
+import podaura.shared.generated.resources.play
 
 fun getEnclosuresList(articleWithEnclosureBean: ArticleWithEnclosureBean): List<Any> {
     val dataList: MutableList<Any> = articleWithEnclosureBean.enclosures.toMutableList()

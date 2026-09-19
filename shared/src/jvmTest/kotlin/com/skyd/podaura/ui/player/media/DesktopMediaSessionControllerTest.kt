@@ -2,10 +2,10 @@ package com.skyd.podaura.ui.player.media
 
 import com.skyd.podaura.model.bean.playlist.PlaylistMediaBean
 import com.skyd.podaura.model.bean.playlist.PlaylistMediaWithArticleBean
-import com.skyd.podaura.ui.player.PlayerCommand
-import com.skyd.podaura.ui.player.PlayerEvent
 import com.skyd.podaura.ui.player.PlaybackEnd
 import com.skyd.podaura.ui.player.PlaybackEndReason
+import com.skyd.podaura.ui.player.PlayerCommand
+import com.skyd.podaura.ui.player.PlayerEvent
 import com.skyd.podaura.ui.player.service.PlayerState
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable

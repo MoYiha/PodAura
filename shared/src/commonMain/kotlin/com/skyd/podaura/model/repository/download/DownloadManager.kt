@@ -26,6 +26,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
+import kotlin.time.Duration.Companion.milliseconds
 
 class DownloadManager private constructor() : IDownloadManager, KoinComponent {
     private val downloader: Downloader by inject()
@@ -115,7 +116,7 @@ class DownloadManager private constructor() : IDownloadManager, KoinComponent {
             }
             if (!hasFailure) return
 
-            delay(retryDelayMillis)
+            delay(retryDelayMillis.milliseconds)
             retryDelayMillis = minOf(
                 retryDelayMillis * 2,
                 MAX_COMPLETION_RETRY_DELAY_MILLIS,

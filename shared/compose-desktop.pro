@@ -43,10 +43,6 @@
 # Compose
 -keep, allowshrinking, allowobfuscation class androidx.compose.ui.text.ParagraphKt { <methods>; }
 
-# FileKit
-# Remove when FileKit upgrades to use skiko 0.150.1 (or newer)
--dontwarn io.github.vinceglb.filekit.dialogs.compose.util.ImageBitmapExt_nonAndroidKt$encodeToByteArray$2
-
 # Mediamp
 # JNA resolves native symbols from interface method names and descriptors at runtime. ProGuard
 # must not rename or optimize this interface (for example SetDllDirectoryW -> SetDllDirectoryW$...).
@@ -71,9 +67,6 @@
     void seekTo(long);
     void close();
 }
-# LocalWindow has been renamed LocalAwtWindow in newer Compose versions
-# We don't use MpvMediampPlayerSurfaceRing so we can safely ignore this warning.
--dontwarn org.openani.mediamp.mpv.compose.MpvMediampPlayerSurface_desktopKt
 
 # Windows Window Frame
 -keepnames class androidx.compose.foundation.HoverableNode

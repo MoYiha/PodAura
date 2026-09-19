@@ -96,8 +96,6 @@ import com.skyd.podaura.ui.screen.settings.appearance.search.SearchStyleRoute
 import com.skyd.podaura.ui.screen.settings.appearance.search.SearchStyleScreen
 import com.skyd.podaura.ui.screen.settings.behavior.BehaviorRoute
 import com.skyd.podaura.ui.screen.settings.behavior.BehaviorScreen
-import com.skyd.podaura.ui.screen.settings.language.AppLanguageRoute
-import com.skyd.podaura.ui.screen.settings.language.AppLanguageScreen
 import com.skyd.podaura.ui.screen.settings.data.DataRoute
 import com.skyd.podaura.ui.screen.settings.data.DataScreen
 import com.skyd.podaura.ui.screen.settings.data.autodelete.AutoDeleteRoute
@@ -110,6 +108,8 @@ import com.skyd.podaura.ui.screen.settings.data.importexport.importopml.ImportOp
 import com.skyd.podaura.ui.screen.settings.data.importexport.importopml.ImportOpmlDeepLinkRoute.Companion.ImportOpmlDeepLinkLauncher
 import com.skyd.podaura.ui.screen.settings.data.importexport.importopml.ImportOpmlRoute
 import com.skyd.podaura.ui.screen.settings.data.importexport.importopml.ImportOpmlRoute.Companion.ImportOpmlLauncher
+import com.skyd.podaura.ui.screen.settings.language.AppLanguageRoute
+import com.skyd.podaura.ui.screen.settings.language.AppLanguageScreen
 import com.skyd.podaura.ui.screen.settings.playerconfig.PlayerConfigRoute
 import com.skyd.podaura.ui.screen.settings.playerconfig.PlayerConfigScreen
 import com.skyd.podaura.ui.screen.settings.playerconfig.advanced.PlayerConfigAdvancedRoute
@@ -118,10 +118,10 @@ import com.skyd.podaura.ui.screen.settings.rssconfig.RssConfigRoute
 import com.skyd.podaura.ui.screen.settings.rssconfig.RssConfigScreen
 import com.skyd.podaura.ui.screen.settings.rssconfig.updatenotification.UpdateNotificationRoute
 import com.skyd.podaura.ui.screen.settings.rssconfig.updatenotification.UpdateNotificationScreen
-import com.skyd.podaura.ui.screen.settings.transmission.TransmissionRoute
-import com.skyd.podaura.ui.screen.settings.transmission.TransmissionScreen
 import com.skyd.podaura.ui.screen.settings.translation.TranslationSettingsRoute
 import com.skyd.podaura.ui.screen.settings.translation.TranslationSettingsScreen
+import com.skyd.podaura.ui.screen.settings.transmission.TransmissionRoute
+import com.skyd.podaura.ui.screen.settings.transmission.TransmissionScreen
 import com.skyd.podaura.ui.theme.PodAuraTheme
 
 

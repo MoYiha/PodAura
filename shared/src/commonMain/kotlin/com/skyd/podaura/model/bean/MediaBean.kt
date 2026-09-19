@@ -1,8 +1,8 @@
 package com.skyd.podaura.model.bean
 
+import com.skyd.podaura.ext.asPlatformFile
 import com.skyd.podaura.model.bean.article.ArticleWithEnclosureBean
 import com.skyd.podaura.model.bean.feed.FeedBean
-import com.skyd.podaura.ext.asPlatformFile
 import com.skyd.podaura.util.fileicon.fileIcon
 import io.github.vinceglb.filekit.PlatformFile
 import io.github.vinceglb.filekit.isDirectory

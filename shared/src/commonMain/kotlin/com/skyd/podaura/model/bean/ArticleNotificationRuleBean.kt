@@ -28,8 +28,7 @@ data class ArticleNotificationRuleBean(
     private fun isValid() = regex.isNotBlank() && runCatching { Regex(regex) }.getOrNull() != null
 
     fun match(data: ArticleWithEnclosureBean): Boolean {
-        if (!isValid()) return false
-        return Regex(regex).run {
+        return isValid() && Regex(regex).run {
             matches(data.article.title.orEmpty()) ||
                     matches(data.article.description.orEmpty()) ||
                     matches(data.article.content.orEmpty()) ||

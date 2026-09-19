@@ -75,7 +75,7 @@ class PlaylistMediaRepository(
                 MANUAL -> PlaylistMediaBean.ORDER_POSITION_COLUMN
                 else -> PlaylistMediaBean.ORDER_POSITION_COLUMN
             }
-            val realSortAsc = if (sortBy == MANUAL) true else sortAsc
+            val realSortAsc = sortBy == MANUAL || sortAsc
             Pager(pagingConfig) {
                 playlistMediaDao.getPlaylistMediaListPaging(
                     playlistId = playlistId,

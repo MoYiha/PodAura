@@ -1,13 +1,12 @@
 package com.skyd.podaura.ui.player.coordinator
 
-import com.skyd.podaura.ui.player.PlayerEvent
 import com.skyd.podaura.ui.player.PlaybackEnd
 import com.skyd.podaura.ui.player.PlaybackEndReason
 import com.skyd.podaura.ui.player.PlaybackFailure
+import com.skyd.podaura.ui.player.PlayerEvent
 import com.skyd.podaura.ui.player.Track
 import com.skyd.podaura.ui.player.service.PlayerState
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -21,8 +20,8 @@ import kotlinx.coroutines.test.setMain
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNull
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class PlayerModelTest {

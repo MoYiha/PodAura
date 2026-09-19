@@ -18,8 +18,8 @@ import com.skyd.podaura.model.repository.download.IDownloadManager
 import com.skyd.podaura.model.repository.download.SelectedArticleDownloader
 import com.skyd.podaura.model.repository.feed.RssHelper
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -32,10 +32,10 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.test.assertIs
 
 class ArticleSelectionViewModelTest {
     private lateinit var directory: File

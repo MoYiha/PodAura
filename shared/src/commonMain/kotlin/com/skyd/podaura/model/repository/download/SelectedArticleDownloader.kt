@@ -53,9 +53,9 @@ class SelectedArticleDownloader internal constructor(
                 .toMutableSet()
         val existing = mutableListOf<SelectedDownload>()
         var noEnclosure = 0
-        for (item in articles) {
-            val article = item.articleWithEnclosure.article
-            val enclosure = item.articleWithEnclosure.enclosures.firstOrNull()
+        for ((articleWithEnclosure) in articles) {
+            val article = articleWithEnclosure.article
+            val enclosure = articleWithEnclosure.enclosures.firstOrNull()
             if (enclosure == null) {
                 noEnclosure++
                 continue

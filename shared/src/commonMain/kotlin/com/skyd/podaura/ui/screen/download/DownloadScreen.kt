@@ -36,10 +36,10 @@ import com.skyd.compone.component.ComponeScaffold
 import com.skyd.compone.component.ComponeTopBar
 import com.skyd.compone.component.ComponeTopBarStyle
 import com.skyd.compone.ext.plus
-import com.skyd.mvi.getDispatcher
 import com.skyd.fundation.util.Platform
 import com.skyd.fundation.util.isJvm
 import com.skyd.fundation.util.platform
+import com.skyd.mvi.getDispatcher
 import com.skyd.podaura.model.download.DownloadInfoBean
 import com.skyd.podaura.model.repository.download.DownloadManager
 import com.skyd.podaura.model.repository.download.DownloadStarter

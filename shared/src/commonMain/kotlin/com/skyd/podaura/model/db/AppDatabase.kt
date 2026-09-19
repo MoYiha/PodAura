@@ -33,6 +33,7 @@ import com.skyd.podaura.model.db.dao.TranslationProfileDao
 import com.skyd.podaura.model.db.dao.download.AutoDownloadRuleDao
 import com.skyd.podaura.model.db.dao.playlist.PlaylistDao
 import com.skyd.podaura.model.db.dao.playlist.PlaylistMediaDao
+import com.skyd.podaura.model.db.entity.TranslationProfileEntity
 import com.skyd.podaura.model.db.migration.Migration10To11
 import com.skyd.podaura.model.db.migration.Migration11To12
 import com.skyd.podaura.model.db.migration.Migration12To13
@@ -60,7 +61,6 @@ import com.skyd.podaura.model.db.migration.Migration6To7
 import com.skyd.podaura.model.db.migration.Migration7To8
 import com.skyd.podaura.model.db.migration.Migration8To9
 import com.skyd.podaura.model.db.migration.Migration9To10
-import com.skyd.podaura.model.db.entity.TranslationProfileEntity
 
 const val APP_DATA_BASE_FILE_NAME = "app.db"
 

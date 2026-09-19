@@ -37,19 +37,19 @@ import com.skyd.podaura.ui.screen.settings.appearance.media.MediaStyleRoute
 import com.skyd.podaura.ui.screen.settings.appearance.read.ReadStyleRoute
 import com.skyd.podaura.ui.screen.settings.appearance.search.SearchStyleRoute
 import com.skyd.podaura.ui.screen.settings.behavior.BehaviorRoute
-import com.skyd.podaura.ui.screen.settings.language.AppLanguageRoute
 import com.skyd.podaura.ui.screen.settings.data.DataRoute
 import com.skyd.podaura.ui.screen.settings.data.autodelete.AutoDeleteRoute
 import com.skyd.podaura.ui.screen.settings.data.deleteconstraint.DeleteConstraintRoute
 import com.skyd.podaura.ui.screen.settings.data.importexport.ImportExportRoute
 import com.skyd.podaura.ui.screen.settings.data.importexport.importopml.ImportOpmlDeepLinkRoute
 import com.skyd.podaura.ui.screen.settings.data.importexport.importopml.ImportOpmlRoute
+import com.skyd.podaura.ui.screen.settings.language.AppLanguageRoute
 import com.skyd.podaura.ui.screen.settings.playerconfig.PlayerConfigRoute
 import com.skyd.podaura.ui.screen.settings.playerconfig.advanced.PlayerConfigAdvancedRoute
 import com.skyd.podaura.ui.screen.settings.rssconfig.RssConfigRoute
 import com.skyd.podaura.ui.screen.settings.rssconfig.updatenotification.UpdateNotificationRoute
-import com.skyd.podaura.ui.screen.settings.transmission.TransmissionRoute
 import com.skyd.podaura.ui.screen.settings.translation.TranslationSettingsRoute
+import com.skyd.podaura.ui.screen.settings.transmission.TransmissionRoute
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 

@@ -198,11 +198,7 @@ internal fun Modifier.desktopImageGestures(
                         PointerEventType.ScaleEnd -> true
 
                         PointerEventType.Release -> {
-                            if (event.isDesktopPrimaryDoubleClick()) {
-                                handleGesture { state.switchScale(change.position) }
-                            } else {
-                                false
-                            }
+                            event.isDesktopPrimaryDoubleClick() && handleGesture { state.switchScale(change.position) }
                         }
 
                         else -> false

@@ -1,5 +1,9 @@
 package com.skyd.podaura.ui.player.media
 
+import co.touchlab.kermit.Severity
+import co.touchlab.kermit.coil.KermitCoilLogger
+import co.touchlab.kermit.loggerConfigInit
+import co.touchlab.kermit.platformLogWriter
 import coil3.PlatformContext
 import coil3.request.ErrorResult
 import coil3.request.ImageRequest
@@ -7,7 +11,6 @@ import coil3.request.SuccessResult
 import coil3.size.Precision
 import coil3.size.Scale
 import coil3.toBitmap
-import coil3.util.DebugLogger
 import com.skyd.podaura.ui.component.imageLoaderBuilder
 import com.skyd.podaura.util.coil.localmedia.LocalMedia
 import com.skyd.podaura.util.coil.localmedia.LocalMediaImageLogger
@@ -20,7 +23,17 @@ internal object CoilDesktopArtworkLoader : DesktopArtworkLoader {
     private val context = PlatformContext.INSTANCE
     private val imageLoader by lazy {
         context.imageLoaderBuilder()
-            .logger(LocalMediaImageLogger(DebugLogger()))
+            .logger(
+                LocalMediaImageLogger(
+                    KermitCoilLogger(
+                        config = loggerConfigInit(
+                            platformLogWriter(),
+                            minSeverity = Severity.Info
+                        ),
+                        separator = ":"
+                    )
+                )
+            )
             .build()
     }
 

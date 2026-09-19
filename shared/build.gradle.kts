@@ -44,7 +44,7 @@ kotlin {
         namespace = "com.skyd.podaura.shared"
         minSdk = 24
         compileSdk {
-            version = release(37) { minorApiLevel = 1 }
+            version = release(37) { minorApiLevel = 2 }
         }
         buildToolsVersion = "37.0.0"
         androidResources.enable = true
@@ -129,8 +129,11 @@ kotlin {
             implementation(libs.filekit.core)
             implementation(libs.filekit.dialogs)
 
-            implementation(libs.compottie)
             implementation(libs.kermit)
+            implementation(libs.kermit.ktor)
+            implementation(libs.kermit.coil)
+
+            implementation(libs.compottie)
             implementation(libs.codepoints.deluxe)
             implementation(libs.ksoup)
             implementation(libs.readability)
@@ -273,7 +276,7 @@ composeCompiler {
     metricsDestination = layout.buildDirectory.dir("compose_compiler/metrics")
 }
 
-// mediamp 0.2.1 accidentally publishes Compose's JUnit UI test stack as a runtime
+// mediamp 0.4.0 accidentally publishes Compose's JUnit UI test stack as a runtime
 // dependency. Besides bloating distributions, Truth leaves optional ASM references
 // unresolved during desktop ProGuard.
 configurations.matching { it.name == "jvmRuntimeClasspath" }.configureEach {
@@ -296,7 +299,6 @@ compose.desktop {
             macOS {
                 bundleID = "com.skyd.podaura"
                 iconFile = project.file("icons/icon_512x512.icns")
-                minimumSystemVersion = "11.0"
                 infoPlist {
                     extraKeysRawXml = macOSMediaDocumentTypes()
                 }

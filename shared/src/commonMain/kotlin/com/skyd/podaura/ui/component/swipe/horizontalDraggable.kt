@@ -155,7 +155,7 @@ internal class DraggableNode(
                         )
                     } catch (cancellation: CancellationException) {
                         isDragSuccessful = false
-                        if (!isActive) throw cancellation
+                        if (!this@coroutineScope.isActive) throw cancellation
                     } finally {
                         val event = if (isDragSuccessful) {
                             val velocity = velocityTracker.calculateVelocity()

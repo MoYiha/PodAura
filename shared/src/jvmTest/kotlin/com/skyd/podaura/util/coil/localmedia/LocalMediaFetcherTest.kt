@@ -10,7 +10,6 @@ import coil3.request.SuccessResult
 import coil3.util.Logger
 import com.skyd.podaura.ui.component.imageRequest
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.runBlocking
 import org.jaudiotagger.audio.AudioFileIO
 import org.jaudiotagger.tag.images.StandardArtwork
@@ -18,7 +17,6 @@ import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.nio.file.Files
-import java.nio.file.Path as JavaPath
 import java.nio.file.attribute.FileTime
 import java.util.Base64
 import javax.imageio.ImageIO
@@ -30,10 +28,11 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertNotNull
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import java.nio.file.Path as JavaPath
 
 class LocalMediaFetcherTest {
 

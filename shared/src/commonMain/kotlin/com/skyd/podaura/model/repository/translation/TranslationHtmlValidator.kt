@@ -109,32 +109,32 @@ class TranslationHtmlValidator(
         }
 
         val expectedById = envelope.criticalNodes.associateBy { it.id }
-        for (criticalNode in envelope.criticalNodes) {
-            val matches = content.select("[data-podaura-node-id=${criticalNode.id}]")
-            if (criticalNode.tagName != "a" && matches.size != 1) {
+        for ((id, tagName, protectedAttributes, protectedInnerHtml) in envelope.criticalNodes) {
+            val matches = content.select("[data-podaura-node-id=$id]")
+            if (tagName != "a" && matches.size != 1) {
                 return invalid(
                     reason = TranslationHtmlValidationFailureReason.CriticalNodeCount,
-                    nodeId = criticalNode.id,
-                    expectedTag = criticalNode.tagName,
+                    nodeId = id,
+                    expectedTag = tagName,
                     actualCount = matches.size,
                 )
             }
             val changedTag = matches.firstOrNull {
-                it.tagName().lowercase() != criticalNode.tagName
+                it.tagName().lowercase() != tagName
             }
             if (changedTag != null) {
                 return invalid(
                     reason = TranslationHtmlValidationFailureReason.CriticalNodeTagChanged,
-                    nodeId = criticalNode.id,
-                    expectedTag = criticalNode.tagName,
+                    nodeId = id,
+                    expectedTag = tagName,
                     actualTag = changedTag.tagName().lowercase().take(MAX_LOGGED_TAG_LENGTH),
                 )
             }
             matches.forEach { translated ->
-                criticalNode.protectedAttributes.forEach { (key, value) ->
+                protectedAttributes.forEach { (key, value) ->
                     translated.attr(key, value)
                 }
-                criticalNode.protectedInnerHtml?.let(translated::html)
+                protectedInnerHtml?.let(translated::html)
             }
         }
 

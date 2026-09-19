@@ -51,9 +51,9 @@ import com.skyd.podaura.ext.isCompact
 import com.skyd.podaura.ui.component.PodAuraImage
 import com.skyd.podaura.ui.local.LocalWindowSizeClass
 import com.skyd.podaura.ui.player.PlayerCommand
-import com.skyd.podaura.ui.player.withoutHotPlayerValues
 import com.skyd.podaura.ui.player.coordinator.PlayerCoordinator
 import com.skyd.podaura.ui.player.service.PlayerState
+import com.skyd.podaura.ui.player.withoutHotPlayerValues
 import org.jetbrains.compose.resources.stringResource
 import podaura.shared.generated.resources.Res
 import podaura.shared.generated.resources.close

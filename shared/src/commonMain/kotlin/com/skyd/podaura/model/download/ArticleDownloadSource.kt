@@ -1,7 +1,6 @@
 package com.skyd.podaura.model.download
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 @Serializable

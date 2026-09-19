@@ -24,19 +24,20 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.parameters
 import io.ktor.utils.io.cancel
-import io.ktor.utils.io.readRemaining
+import io.ktor.utils.io.readBuffer
 import kotlinx.coroutines.delay
 import kotlinx.io.readByteArray
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration.Companion.milliseconds
 
 class DeepLTranslationProvider(
     private val client: HttpClient,
     private val credentialStore: CredentialStore,
     private val log: Logger = Logger.withTag("DeepLTranslationProvider"),
-    private val retryDelay: suspend (Long) -> Unit = { delay(it) },
+    private val retryDelay: suspend (Long) -> Unit = { delay(it.milliseconds) },
 ) : TranslationProvider {
     override val type: TranslationProviderType = TranslationProviderType.DeepL
 
@@ -152,8 +153,7 @@ class DeepLTranslationProvider(
             when {
                 response.status == HttpStatusCode.OK -> {
                     val channel = response.bodyAsChannel()
-                    val body =
-                        channel.readRemaining(MAX_RESPONSE_BYTES.toLong() + 1).readByteArray()
+                    val body = channel.readBuffer(MAX_RESPONSE_BYTES.toLong() + 1).readByteArray()
                     if (body.size > MAX_RESPONSE_BYTES) {
                         channel.cancel()
                         log.w {

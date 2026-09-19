@@ -22,7 +22,7 @@ import io.ktor.utils.io.charsets.Charsets
 import io.ktor.utils.io.charsets.decode
 import io.ktor.utils.io.charsets.forName
 import io.ktor.utils.io.charsets.isSupported
-import io.ktor.utils.io.readRemaining
+import io.ktor.utils.io.readBuffer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.io.Buffer
@@ -255,7 +255,7 @@ private fun HttpResponse.validate(supportedContentTypes: Set<String>) {
 
 private suspend fun HttpResponse.readLimitedBytes(): ByteArray {
     val channel: ByteReadChannel = body()
-    val bytes = channel.readRemaining((MAX_RESPONSE_BYTES + 1).toLong()).readByteArray()
+    val bytes = channel.readBuffer((MAX_RESPONSE_BYTES + 1).toLong()).readByteArray()
     if (bytes.size > MAX_RESPONSE_BYTES) {
         throw FullContentException("Article response is too large")
     }

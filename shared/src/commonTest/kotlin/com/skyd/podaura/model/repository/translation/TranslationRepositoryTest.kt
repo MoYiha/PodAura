@@ -3,7 +3,6 @@ package com.skyd.podaura.model.repository.translation
 import com.skyd.podaura.model.bean.translation.ArticleTranslationResult
 import com.skyd.podaura.model.bean.translation.HtmlTranslationRequest
 import com.skyd.podaura.model.bean.translation.HtmlTranslationResult
-import com.skyd.podaura.model.bean.translation.TranslationCapabilities
 import com.skyd.podaura.model.bean.translation.TranslationContentSource
 import com.skyd.podaura.model.bean.translation.TranslationError
 import com.skyd.podaura.model.bean.translation.TranslationHeader
@@ -17,7 +16,6 @@ import com.skyd.podaura.model.db.entity.TranslationProfileEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals

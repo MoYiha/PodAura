@@ -6,6 +6,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.DefaultAlpha
 import androidx.compose.ui.layout.ContentScale
+import co.touchlab.kermit.Severity
+import co.touchlab.kermit.coil.KermitCoilLogger
+import co.touchlab.kermit.loggerConfigInit
+import co.touchlab.kermit.platformLogWriter
 import coil3.ComponentRegistry
 import coil3.EventListener
 import coil3.ImageLoader
@@ -17,7 +21,6 @@ import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import coil3.svg.SvgDecoder
-import coil3.util.DebugLogger
 import com.skyd.fundation.di.get
 import com.skyd.podaura.util.coil.localmedia.LocalMedia
 import com.skyd.podaura.util.coil.localmedia.LocalMediaImageLogger
@@ -74,7 +77,17 @@ fun rememberPodAuraImageLoader(
     return remember {
         context.imageLoaderBuilder(components = components)
             .run { if (listener != null) eventListener(listener) else this }
-            .logger(LocalMediaImageLogger(DebugLogger()))
+            .logger(
+                LocalMediaImageLogger(
+                    KermitCoilLogger(
+                        config = loggerConfigInit(
+                            platformLogWriter(),
+                            minSeverity = Severity.Info
+                        ),
+                        separator = ":"
+                    )
+                )
+            )
             .build()
     }
 }
